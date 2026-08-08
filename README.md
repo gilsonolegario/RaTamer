@@ -226,6 +226,4 @@ Protocol.HIDPP (bytes) │                                        EngineControll
 
 ## History
 
-The Python scripts from the original proof-of-concept (`hidpp.py`, `discover.py`, `daemon.py`, `com.mxremap.daemon.plist`) were removed from the repository — they were a historical reverse-engineering reference and are no longer used. The native app does not use them.
-
 **0.9.0** — About tab with app icon and version; menu bar popover with status and battery; DPI cycling (1000/1600/2000/4000); button remapping with left/right swap; thumb wheel actions; SmartShift wheel mode control; gestures; this README's HID++ documentation and distribution notes; screenshots.
