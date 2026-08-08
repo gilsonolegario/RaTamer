@@ -7,8 +7,8 @@ struct AboutTabView: View {
             if let icon = NSApp.applicationIconImage {
                 Image(nsImage: icon)
                     .resizable()
-                    .frame(width: 100, height: 100)
-                    .cornerRadius(22)
+                    .frame(width: 160, height: 160)
+                    .cornerRadius(35)
             }
             Text("RatTamer").font(.title)
             Text("Version \(version)")
