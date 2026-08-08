@@ -35,8 +35,12 @@ final class EngineController {
     private var watchdog: ConnectionWatchdog?
     private var pingTimer: DispatchSourceTimer?
     private static let pingInterval: TimeInterval = 2.0
-    private let actionThrottle = ActionThrottle(minInterval: 0.25)
+    private let actionThrottle = ActionThrottle(minInterval: 0.25, holdTimeout: 10)
     private static let throttleLog = RateLimitedLogger(interval: 5.0)
+    private static let retryBaseDelay: TimeInterval = 2.0
+    private static let retryMaxDelay: TimeInterval = 30.0
+    private var retryAttempt = 0
+    private var retryGeneration = 0
 
     private func logThrottled(_ message: String) {
         guard Self.throttleLog.shouldLog() else { return }
@@ -163,6 +167,7 @@ final class EngineController {
             setupWatchdog()
             startLoopThread(monitor: monitor)
             isConnected = true
+            retryAttempt = 0
             EngineEvents.shared.onConnected?()
             onConnectionState?(.connected)
             if AXIsProcessTrusted() {
@@ -176,7 +181,25 @@ final class EngineController {
             isConnected = false
             onConnectionState?(.disconnected)
             onStatus?("Not connected: \(error)")
+            scheduleRetry()
             return false
+        }
+    }
+
+    /// Retries connecting with exponential backoff while the receiver is
+    /// unavailable (e.g. not ready yet at login). Stops as soon as a connect
+    /// succeeds or the engine is stopped.
+    private func scheduleRetry() {
+        guard !stopped else { return }
+        let generation = retryGeneration
+        let delay = RetryPolicy.delay(attempt: retryAttempt,
+                                      base: Self.retryBaseDelay,
+                                      maxDelay: Self.retryMaxDelay)
+        retryAttempt += 1
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            guard let self, !self.stopped, self.retryGeneration == generation else { return }
+            Self.log.info("retrying connection (attempt \(self.retryAttempt))")
+            _ = self.start()
         }
     }
 
@@ -225,6 +248,7 @@ final class EngineController {
 
     func stop() {
         stopped = true
+        retryGeneration += 1
         pingTimer?.cancel()
         pingTimer = nil
         watchdog = nil

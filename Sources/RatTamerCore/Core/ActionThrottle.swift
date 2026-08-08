@@ -10,20 +10,30 @@ import Foundation
 public final class ActionThrottle {
     private let lock = NSLock()
     private let minInterval: TimeInterval
+    private let holdTimeout: TimeInterval
     private var lastFired: [String: TimeInterval] = [:]
     private var active: Set<String> = []
+    private var heldSince: [String: TimeInterval] = [:]
 
-    public init(minInterval: TimeInterval) {
+    public init(minInterval: TimeInterval, holdTimeout: TimeInterval = 60) {
         self.minInterval = minInterval
+        self.holdTimeout = holdTimeout
     }
 
     /// True only if `key` is not already held. Returns true (and marks it held)
     /// on the first acquire, false for every acquire until `release(key)`.
-    public func acquire(_ key: String) -> Bool {
+    /// If the firmware loses the release (a stuck press), the key auto-releases
+    /// after `holdTimeout` so future presses are not blocked forever.
+    public func acquire(_ key: String, now: TimeInterval = Date().timeIntervalSinceReferenceDate) -> Bool {
         lock.lock()
         defer { lock.unlock() }
-        guard !active.contains(key) else { return false }
+        if active.contains(key) {
+            guard let since = heldSince[key], now - since >= holdTimeout else { return false }
+            active.remove(key)
+            heldSince.removeValue(forKey: key)
+        }
         active.insert(key)
+        heldSince[key] = now
         return true
     }
 
@@ -31,6 +41,7 @@ public final class ActionThrottle {
         lock.lock()
         defer { lock.unlock() }
         active.remove(key)
+        heldSince.removeValue(forKey: key)
     }
 
     /// True if `key` may fire now. A second fire within `minInterval` is
@@ -50,5 +61,6 @@ public final class ActionThrottle {
         defer { lock.unlock() }
         lastFired.removeAll()
         active.removeAll()
+        heldSince.removeAll()
     }
 }
