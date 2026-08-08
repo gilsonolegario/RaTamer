@@ -15,6 +15,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             Notifier.post(title: "RatTamer", body: "MX Master 2S disconnected")
         }
         requestAccessibilityIfNeeded()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            OnboardingWindow.shared.showIfNeeded()
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
