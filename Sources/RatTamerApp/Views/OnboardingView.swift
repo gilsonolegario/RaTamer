@@ -84,7 +84,7 @@ struct OnboardingView: View {
     }
 
     private var connectionOK: Bool {
-        model.statusText.contains("Connected")
+        model.isConnected
     }
 
     private func refreshAccessibility() {

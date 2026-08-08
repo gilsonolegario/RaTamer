@@ -6,6 +6,8 @@ final class AppModel: ObservableObject {
     let configStore = ConfigStore(fileURL: ConfigStore.defaultFileURL())
     private(set) var engine: EngineController?
     @Published var statusText = "Starting…"
+    @Published var isConnected = false
+    @Published var isReconnecting = false
     @Published var controls: [ControlInfo] = []
     @Published var pressed = Set<UInt16>()
     @Published var remappingEnabled = true {
@@ -21,6 +23,21 @@ final class AppModel: ObservableObject {
         let engine = EngineController(configStore: configStore)
         engine.onStatus = { [weak self] text in
             DispatchQueue.main.async { self?.statusText = text }
+        }
+        engine.onConnectionState = { [weak self] state in
+            DispatchQueue.main.async {
+                switch state {
+                case .connected:
+                    self?.isConnected = true
+                    self?.isReconnecting = false
+                case .disconnected:
+                    self?.isConnected = false
+                    self?.isReconnecting = false
+                case .reconnecting:
+                    self?.isConnected = false
+                    self?.isReconnecting = true
+                }
+            }
         }
         engine.onControlsChanged = { [weak self] controls in
             DispatchQueue.main.async { self?.controls = controls }

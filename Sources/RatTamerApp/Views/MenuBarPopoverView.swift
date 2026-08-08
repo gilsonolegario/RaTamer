@@ -4,7 +4,10 @@ import RatTamerCore
 struct MenuBarPopoverView: View {
     @ObservedObject private var model = AppModel.shared
     @ObservedObject private var battery = BatteryMonitor.shared
+    @ObservedObject private var loginItem = LoginItem.shared
     @State private var hoveredRow: String?
+    @State private var volume: Double = 50
+    @State private var volumeLoaded = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -24,7 +27,15 @@ struct MenuBarPopoverView: View {
 
             separator
 
+            volumeRow
+
+            separator
+
             toggleRow(label: "Enable remapping", isOn: $model.remappingEnabled)
+
+            separator
+
+            toggleRow(label: "Start at login", isOn: $loginItem.isEnabled)
 
             separator
 
@@ -45,8 +56,11 @@ struct MenuBarPopoverView: View {
             }
         }
         .padding(10)
-        .fixedSize()
-        .onAppear { BatteryMonitor.shared.start() }
+        .frame(width: 280)
+        .onAppear {
+            BatteryMonitor.shared.start()
+            loadVolume()
+        }
         .onDisappear { BatteryMonitor.shared.stop() }
     }
 
@@ -55,6 +69,41 @@ struct MenuBarPopoverView: View {
             .fill(Color.gray.opacity(0.15))
             .frame(height: 1)
             .padding(.horizontal, 4)
+    }
+
+    private var volumeRow: some View {
+        VStack(spacing: 4) {
+            HStack(spacing: 8) {
+                Image(systemName: "speaker.wave.2.fill")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 16)
+                Text("Volume")
+                    .font(.callout)
+                Spacer()
+                Text("\(Int(volume))%")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+            }
+            Slider(value: $volume, in: 0...100, step: 1) { editing in
+                if !editing { applyVolume() }
+            }
+            .controlSize(.small)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+    }
+
+    private func loadVolume() {
+        volumeLoaded = false
+        volume = Double(SystemVolume.current() ?? 50)
+        volumeLoaded = true
+    }
+
+    private func applyVolume() {
+        guard volumeLoaded else { return }
+        SystemVolume.set(Int(volume))
     }
 
     private func batteryRow(for info: BatteryInfo) -> some View {
@@ -115,7 +164,7 @@ struct MenuBarPopoverView: View {
     }
 
     private var statusColor: Color {
-        let connected = model.statusText.contains("Connected")
-        return connected ? .green : .red
+        if model.isReconnecting { return .orange }
+        return model.isConnected ? .green : .red
     }
 }

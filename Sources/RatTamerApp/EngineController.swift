@@ -5,6 +5,12 @@ import RatTamerCore
 import os
 
 final class EngineController {
+    enum ConnectionState {
+        case connected
+        case disconnected
+        case reconnecting
+    }
+
     private static let log = Logger(subsystem: "com.rattamer", category: "engine")
     private let configStore: ConfigStore
     private var session: HIDPPSession?
@@ -63,6 +69,7 @@ final class EngineController {
     }
 
     var onStatus: ((_ text: String) -> Void)?
+    var onConnectionState: ((ConnectionState) -> Void)?
     var onButtonEvent: ((_ cid: UInt16) -> Void)?
     var onButtonReleased: ((_ cid: UInt16) -> Void)?
     var onControlsChanged: (([ControlInfo]) -> Void)?
@@ -157,6 +164,7 @@ final class EngineController {
             startLoopThread(monitor: monitor)
             isConnected = true
             EngineEvents.shared.onConnected?()
+            onConnectionState?(.connected)
             if AXIsProcessTrusted() {
                 scrollWheelTap?.start()
                 onStatus?("Connected — \(controls.count) controls")
@@ -166,6 +174,7 @@ final class EngineController {
             return true
         } catch {
             isConnected = false
+            onConnectionState?(.disconnected)
             onStatus?("Not connected: \(error)")
             return false
         }
@@ -207,6 +216,7 @@ final class EngineController {
     func reconnect() {
         stop()
         isConnected = false
+        onConnectionState?(.reconnecting)
         onStatus?("Reconnecting…")
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
             _ = self?.start()
@@ -322,6 +332,7 @@ final class EngineController {
             EngineEvents.shared.onDisconnected?()
             DispatchQueue.main.async { [weak self] in
                 self?.isConnected = false
+                self?.onConnectionState?(.disconnected)
                 self?.onStatus?("Disconnected")
             }
         }
@@ -335,6 +346,7 @@ final class EngineController {
             }
             DispatchQueue.main.async { [weak self] in
                 self?.isConnected = true
+                self?.onConnectionState?(.connected)
                 self?.onStatus?("Connected — \(self?.controls.count ?? 0) controls")
             }
         }
