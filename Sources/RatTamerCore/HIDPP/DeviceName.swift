@@ -29,12 +29,10 @@ public final class DeviceName {
         var name = ""
         var offset = 0
         while name.utf8.count < nameLength {
-            let lo = UInt8(offset & 0xFF)
-            let hi = UInt8((offset >> 8) & 0xFF)
             guard let resp = try session.request(deviceIndex: deviceIndex,
                                                  featureIndex: featureIndex,
                                                  functionID: 0x01,
-                                                 params: [lo, hi]),
+                                                 params: [UInt8(offset)]),
                   resp.count > 4 else { return nil }
             let remaining = nameLength - name.utf8.count
             let end = min(resp.count, 4 + min(16, remaining))

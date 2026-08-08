@@ -70,7 +70,8 @@ public final class BatteryStatus {
                           userInfo: [NSLocalizedDescriptionKey: "short response"])
         }
         let capacity = resp[4]
-        let nextCapacity = resp[5]
+        let nextCapacityIndex = featureID == Self.unifiedFeatureID ? 6 : 5
+        let nextCapacity = resp[nextCapacityIndex]
         let stateIndex = featureID == Self.unifiedFeatureID ? 5 : 6
         let rawState = resp[stateIndex]
         let state = BatteryState.fromRaw(rawState)
