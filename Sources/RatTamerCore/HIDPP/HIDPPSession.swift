@@ -1,0 +1,99 @@
+import Foundation
+
+public enum HIDPPSessionError: Error {
+    case noResponse
+}
+
+public final class HIDPPSession {
+    public let device: HIDDevice
+    public let softwareID: UInt8
+
+    public init(device: HIDDevice, softwareID: UInt8 = 1) {
+        self.device = device
+        self.softwareID = softwareID
+    }
+
+    public func sendShort(
+        deviceIndex: UInt8, featureIndex: UInt8,
+        functionID: UInt8, params: [UInt8] = []
+    ) throws {
+        let bytes = HIDPP.buildShort(
+            deviceIndex: deviceIndex, featureIndex: featureIndex,
+            functionID: functionID, softwareID: softwareID,
+            params: params
+        )
+        try device.write(bytes)
+    }
+
+    public func sendLong(
+        deviceIndex: UInt8, featureIndex: UInt8,
+        functionID: UInt8, params: [UInt8] = []
+    ) throws {
+        let bytes = HIDPP.buildLong(
+            deviceIndex: deviceIndex, featureIndex: featureIndex,
+            functionID: functionID, softwareID: softwareID,
+            params: params
+        )
+        try device.write(bytes)
+    }
+
+    public func readReport(timeout: TimeInterval) throws -> [UInt8]? {
+        return try device.read(timeout: timeout)
+    }
+
+    public func request(
+        deviceIndex: UInt8,
+        featureIndex: UInt8,
+        functionID: UInt8,
+        params: [UInt8] = [],
+        timeout: TimeInterval = 0.5
+    ) throws -> [UInt8]? {
+        device.beginRequest()
+        defer { device.endRequest() }
+        try sendLong(deviceIndex: deviceIndex, featureIndex: featureIndex,
+                     functionID: functionID, params: params)
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            let remaining = max(0, deadline.timeIntervalSinceNow)
+            guard let resp = try device.readForRequest(timeout: min(0.1, remaining)) else { continue }
+            guard resp.count >= 4,
+                  resp[1] == deviceIndex,
+                  resp[2] == featureIndex,
+                  resp[3] >> 4 == functionID else { continue }
+            let sw = resp[3] & 0x0F
+            guard sw == softwareID || sw == 0 else { continue }
+            return resp
+        }
+        return nil
+    }
+
+    public func getFeatureIndex(featureID: UInt16, deviceIndex: UInt8) throws -> UInt8? {
+        let hi = UInt8((featureID >> 8) & 0xFF)
+        let lo = UInt8(featureID & 0xFF)
+        for _ in 0..<3 {
+            guard let resp = try request(deviceIndex: deviceIndex, featureIndex: 0,
+                                         functionID: 0x00, params: [hi, lo, 0x00]),
+                  resp.count >= 5 else { continue }
+            let featureIndex = resp[4]
+            if featureIndex == 0 { return nil }
+            return featureIndex
+        }
+        return nil
+    }
+
+    public func ping(deviceIndex: UInt8) throws -> Bool {
+        // Probes whether a device exists at this index. The Root feature
+        // always answers with feature index 0, so any response means the
+        // device is present (mirrors the Python `fi is not None or resp`).
+        try sendShort(deviceIndex: deviceIndex, featureIndex: 0,
+                      functionID: 0x00, params: [0x00, 0x00, 0x00])
+        return try readReport(timeout: 0.4) != nil
+    }
+
+    public func drain(_ milliseconds: Int) throws {
+        let deadline = Date().addingTimeInterval(Double(milliseconds) / 1000.0)
+        while Date() < deadline {
+            _ = try readReport(timeout: 0.05)
+        }
+    }
+}

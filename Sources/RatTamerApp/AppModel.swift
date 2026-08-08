@@ -1,0 +1,41 @@
+import Foundation
+import RatTamerCore
+
+final class AppModel: ObservableObject {
+    static let shared = AppModel()
+    let configStore = ConfigStore(fileURL: ConfigStore.defaultFileURL())
+    private(set) var engine: EngineController?
+    @Published var statusText = "Starting…"
+    @Published var controls: [ControlInfo] = []
+    @Published var pressed = Set<UInt16>()
+    @Published var remappingEnabled = true {
+        didSet {
+            guard remappingEnabled != oldValue else { return }
+            engine?.enabled = remappingEnabled
+        }
+    }
+
+    private init() {}
+
+    func startEngine() {
+        let engine = EngineController(configStore: configStore)
+        engine.onStatus = { [weak self] text in
+            DispatchQueue.main.async { self?.statusText = text }
+        }
+        engine.onControlsChanged = { [weak self] controls in
+            DispatchQueue.main.async { self?.controls = controls }
+        }
+        engine.onButtonEvent = { [weak self] cid in
+            DispatchQueue.main.async { self?.pressed.insert(cid) }
+        }
+        engine.onButtonReleased = { [weak self] cid in
+            DispatchQueue.main.async { self?.pressed.remove(cid) }
+        }
+        _ = engine.start()
+        self.engine = engine
+    }
+
+    func stopEngine() {
+        engine?.stop()
+    }
+}
