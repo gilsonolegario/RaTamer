@@ -6,7 +6,7 @@
 
 **Architecture:** The app already connects to any Logitech HID++ device and queries features dynamically. This plan (1) exposes the real device product name, (2) adds a pure `DeviceCapabilities` struct built after connect, (3) wires it through `EngineController`/`AppModel` into notifications, the About tab and the SmartShift menu, (4) derives DPI cycle defaults from the device's reported DPI list, and (5) updates docs.
 
-**Tech Stack:** Swift 5.9, SwiftPM, macOS 14+, IOKit HID++. No new dependencies. Tested only on MX Master 2S (other models supported by construction — no tester campaign).
+**Tech Stack:** Swift 5.9, SwiftPM, macOS 14+, IOKit HID++. No new dependencies. Primary testing on MX Master 3 (external tester) and MX Master 2S (local); other models supported by construction.
 
 ## Global Constraints
 
@@ -203,7 +203,7 @@ git commit -m "feat: add DeviceCapabilities struct"
 - Modify: `Sources/RatTamerApp/Views/SimpleTabs.swift`
 
 **Interfaces:**
-- Consumes: `HIDPPSession.productName: String?` (Task 1); `DeviceCapabilities` (Task 2); `HiResWheel.getInfo() -> WheelInfo` where `WheelInfo.hasSwitch: Bool`.
+- Consumes: `HIDPPSession.productName: String?` (Task 1); `HIDPPSession.readProductName(deviceIndex:)` (Task 8); `BatteryStatus.unifiedFeatureID` (Task 8); `SmartShiftControls.enhancedFeatureID` (Task 8); `DeviceCapabilities` (Task 2); `HiResWheel.getInfo() -> WheelInfo` where `WheelInfo.hasSwitch: Bool`.
 - Produces: `EngineController.deviceName: String`; `EngineController.capabilities: DeviceCapabilities`; `AppModel.deviceName: String` (`@Published`); `AppModel.capabilities: DeviceCapabilities` (`@Published`). Used by Task 4 and the About tab.
 
 - [ ] **Step 1: Add stored properties to EngineController**
@@ -220,10 +220,10 @@ In `Sources/RatTamerApp/EngineController.swift`, near the other `private(set)` p
 
 - [ ] **Step 2: Populate them in start()**
 
-In `start()`, right after `self.session = session`:
+In `start()`, right after `self.session = session` (uses Task 8's `readProductName`):
 
 ```swift
-            self.deviceName = session.productName ?? "HID++ device"
+            self.deviceName = (try? session.readProductName(deviceIndex: deviceIndex)) ?? "HID++ device"
 ```
 
 After the `HiResWheel` service block (after `self._hiResWheelService = HiResWheel(...)` inside the `if let wheelIndex` block), compute capabilities. Add this block right after the `if let wheelIndex { ... }` closes (still inside `do`, before `let monitor = ...`):
@@ -236,7 +236,49 @@ After the `HiResWheel` service block (after `self._hiResWheelService = HiResWhee
                                                    hasSmartShift: hasSmartShift)
 ```
 
-- [ ] **Step 3: Publish through AppModel**
+- [ ] **Step 3: Battery service: try 0x1000 then 0x1004**
+
+In `start()`, replace the existing battery block (uses Task 8's `BatteryStatus.unifiedFeatureID`):
+
+```swift
+            if let batteryIndex = try? session.getFeatureIndex(
+                featureID: BatteryStatus.featureID, deviceIndex: deviceIndex
+            ) {
+                self._batteryService = BatteryStatus(session: session,
+                                                     deviceIndex: deviceIndex,
+                                                     featureIndex: batteryIndex)
+            } else if let batteryIndex = try? session.getFeatureIndex(
+                featureID: BatteryStatus.unifiedFeatureID, deviceIndex: deviceIndex
+            ) {
+                self._batteryService = BatteryStatus(session: session,
+                                                     deviceIndex: deviceIndex,
+                                                     featureIndex: batteryIndex,
+                                                     featureID: BatteryStatus.unifiedFeatureID)
+            }
+```
+
+- [ ] **Step 4: SmartShift service: try 0x2111 then 0x2110**
+
+In `start()`, replace the existing SmartShift block (uses Task 8's `SmartShiftControls.enhancedFeatureID`):
+
+```swift
+            if let smartShiftIndex = try? session.getFeatureIndex(
+                featureID: SmartShiftControls.enhancedFeatureID, deviceIndex: deviceIndex
+            ) {
+                self.smartShiftService = SmartShiftControls(session: session,
+                                                            deviceIndex: deviceIndex,
+                                                            featureIndex: smartShiftIndex,
+                                                            featureID: SmartShiftControls.enhancedFeatureID)
+            } else if let smartShiftIndex = try? session.getFeatureIndex(
+                featureID: SmartShiftControls.featureID, deviceIndex: deviceIndex
+            ) {
+                self.smartShiftService = SmartShiftControls(session: session,
+                                                            deviceIndex: deviceIndex,
+                                                            featureIndex: smartShiftIndex)
+            }
+```
+
+- [ ] **Step 5: Publish through AppModel**
 
 In `Sources/RatTamerApp/AppModel.swift`, add published properties after `@Published var remappingEnabled`:
 
@@ -258,7 +300,7 @@ In the `engine.onConnectionState` `.connected` case, set them:
                     self?.capabilities = engine.capabilities
 ```
 
-- [ ] **Step 4: Use the device name in notifications**
+- [ ] **Step 6: Use the device name in notifications**
 
 In `Sources/RatTamerApp/AppDelegate.swift`, replace the two hardcoded bodies:
 
@@ -271,7 +313,7 @@ In `Sources/RatTamerApp/AppDelegate.swift`, replace the two hardcoded bodies:
         }
 ```
 
-- [ ] **Step 5: Use the device name in the About tab**
+- [ ] **Step 7: Use the device name in the About tab**
 
 In `Sources/RatTamerApp/Views/SimpleTabs.swift`, add an observed model to `AboutTabView` and replace line 15:
 
@@ -284,12 +326,12 @@ struct AboutTabView: View {
 
 (Keep the remaining lines unchanged.)
 
-- [ ] **Step 6: Build and run the full test suite**
+- [ ] **Step 8: Build and run the full test suite**
 
 Run: `swift build` then `swift test`
 Expected: compiles clean; all tests pass.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
 git add Sources/RatTamerApp/EngineController.swift Sources/RatTamerApp/AppModel.swift Sources/RatTamerApp/AppDelegate.swift Sources/RatTamerApp/Views/SimpleTabs.swift
@@ -328,9 +370,9 @@ In `Sources/RatTamerApp/Views/ButtonsTabView.swift`, in `smartShiftMenu(for:)`, 
 Run: `swift build`
 Expected: compiles clean.
 
-- [ ] **Step 3: Manual verification on MX Master 2S**
+- [ ] **Step 3: Manual verification on MX Master 3 (priority)**
 
-Run the app (`swift run RatTamer` or `./scripts/build-app.sh` + open the bundle). Open Settings → Buttons, find the SmartShift control (CID 0x00C4): the "SmartShift (auto)" option must still be present (2S supports it). Setting it must still work.
+Run the app (`swift run RatTamer` or `./scripts/build-app.sh` + open the bundle). Open Settings → Buttons, find the SmartShift control (CID 0x00C4): the "SmartShift (auto)" option must still be present (MX Master 3 supports it via feature 0x2110). Setting it must still work. If a second device (MX Master 2S) is available, repeat.
 
 - [ ] **Step 4: Commit**
 
@@ -461,7 +503,7 @@ A native macOS menu bar app that replaces Logitech Options+ for the MX Master 2S
 
 Concretely, change the sentence to:
 
-> A native macOS menu bar app that replaces Logitech Options+ for the MX Master 2S — tested on that model and designed to adapt to other HID++ Logitech devices (MX Master 3/3S, MX Anywhere, MX Vertical). It captures the mouse buttons over HID++ 2.0 and runs your own shortcut, system action or click for each one — no Logitech software required, native behavior restored on quit.
+> A native macOS menu bar app that replaces Logitech Options+ for the MX Master 3 and MX Master 2S — tested on those models and designed to adapt to other HID++ Logitech devices (MX Master 3S, MX Anywhere, MX Vertical). It captures the mouse buttons over HID++ 2.0 and runs your own shortcut, system action or click for each one — no Logitech software required, native behavior restored on quit.
 
 - [ ] **Step 2: Update the macOS compatibility table**
 
@@ -470,8 +512,9 @@ In `README.md`, add a row to the compatibility table noting model scope:
 ```
 | Device | Notes |
 |---|---|
+| MX Master 3 | fully tested |
 | MX Master 2S | fully tested |
-| MX Master 3/3S, MX Anywhere, MX Vertical | supported by feature detection, not tested on hardware |
+| MX Master 3S, MX Anywhere, MX Vertical | supported by feature detection, not tested on hardware |
 ```
 
 - [ ] **Step 3: Check and update docs/TECHNICAL.md**
@@ -479,7 +522,15 @@ In `README.md`, add a row to the compatibility table noting model scope:
 Run: `grep -n "MX Master 2S" docs/TECHNICAL.md`
 If it names the device as a hardcoded requirement, reword the same way (tested on 2S, adapts to other HID++ devices). If the match is a historical note, leave it.
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 4: Add a Bluetooth connectivity note to the README**
+
+In `README.md`, right after the compatibility table (from Step 2), add:
+
+```
+> **Note:** On macOS, some Logitech mice (e.g. MX Master 3, MX Vertical, MX Keys Mini) do not expose the HID++ interface over Bluetooth. For full support, connect via the Unifying/Bolt receiver.
+```
+
+- [ ] **Step 5: Commit**
 
 ```bash
 git add README.md docs/TECHNICAL.md
@@ -502,11 +553,272 @@ Expected: all tests pass (including the three new test files).
 Run: `./scripts/build-app.sh`
 Expected: `build/RatTamer.app` built and signed (ad-hoc).
 
-- [ ] **Step 3: Manual regression on MX Master 2S**
+- [ ] **Step 3: Manual regression on MX Master 3 (priority; MX Master 2S secondary)**
 
-Run the app and verify: connect status + notification shows the real device name (not hardcoded "MX Master 2S" text); About tab shows the device name; battery row present; DPI slider works; assign "Cycle DPI" to a button and confirm it cycles 1000 → 1600 → 2000 → 4000; SmartShift menu still offers "SmartShift (auto)"; thumb wheel still triggers its actions; reconnect after unplug works.
+Run the app and verify: connect status + notification shows the real device name (not "USB Receiver" or hardcoded text); About tab shows the device name; battery row present; DPI slider works; assign "Cycle DPI" to a button and confirm it cycles through the device's DPI list; SmartShift menu still offers "SmartShift (auto)"; thumb wheel still triggers its actions; reconnect after unplug works. Note for the tester: on macOS, MX Master 3 over Bluetooth may not expose HID++ — use the Unifying receiver.
 
 - [ ] **Step 4: Final commit if any stragglers**
 
 Run: `git status`
 If anything uncommitted remains, commit it with a descriptive message.
+
+---
+### Task 8: Core research amendments (0x0005 device name, 0x1004 battery, 0x2111 SmartShift)
+
+> **Ordering:** Run immediately after Task 1 and before Tasks 2-3. Task 3 uses `HIDPPSession.readProductName`, `BatteryStatus.unifiedFeatureID` and `SmartShiftControls.enhancedFeatureID` added here.
+>
+> **Source:** validated by `docs/superpowers/specs/2026-08-08-multi-device-support-hidresearch.md` — receivers report "USB Receiver" via IOKit and the real name comes from feature 0x0005; MX Master 3S/4 expose 0x1004 and 0x2111 instead of 0x1000/0x2110.
+
+**Files:**
+- Create: `Sources/RatTamerCore/HIDPP/DeviceName.swift`
+- Modify: `Sources/RatTamerCore/HIDPP/HIDPPSession.swift`
+- Modify: `Sources/RatTamerCore/HIDPP/BatteryStatus.swift`
+- Modify: `Sources/RatTamerCore/HIDPP/SmartShiftControls.swift`
+- Test: `Tests/RatTamerCoreTests/HIDPP/DeviceNameTests.swift` (new)
+- Modify: `Tests/RatTamerCoreTests/HIDPP/HIDPPSessionTests.swift`
+- Modify: `Tests/RatTamerCoreTests/HIDPP/BatteryStatusTests.swift`
+- Modify: `Tests/RatTamerCoreTests/HIDPP/SmartShiftControlsTests.swift`
+
+**Interfaces:**
+- Consumes: `HIDPPSession.request`, the existing mock pattern (`MockHIDDevice`).
+- Produces: `HIDPPSession.readProductName(deviceIndex:) -> String?`; `DeviceName` (feature 0x0005); `BatteryStatus.unifiedFeatureID` (0x1004) and a `featureID` init param; `SmartShiftControls.enhancedFeatureID` (0x2111) and a `featureID` init param. The `featureID` defaults keep existing call sites compiling.
+
+- [ ] **Step 1: Write the failing tests**
+
+Create `Tests/RatTamerCoreTests/HIDPP/DeviceNameTests.swift`:
+
+```swift
+import XCTest
+@testable import RatTamerCore
+
+final class DeviceNameTests: XCTestCase {
+    func testGetNameCountReturnsLength() throws {
+        let mock = MockHIDDevice()
+        mock.queuedReads = [[0x11, 0x01, 0x08, 0x00, 0x0A]]
+        let service = DeviceName(session: HIDPPSession(device: mock), deviceIndex: 1, featureIndex: 0x08)
+        XCTAssertEqual(try service.getNameCount(), 10)
+    }
+
+    func testGetNameAssemblesChunks() throws {
+        let mock = MockHIDDevice()
+        var writes = 0
+        mock.onWrite = { _ in
+            writes += 1
+            if writes == 1 {
+                return [0x11, 0x01, 0x08, 0x00, 12]
+            }
+            return [0x11, 0x01, 0x08, 0x10] + Array("MX Master 3S".utf8)
+        }
+        let service = DeviceName(session: HIDPPSession(device: mock), deviceIndex: 1, featureIndex: 0x08)
+        XCTAssertEqual(try service.getName(), "MX Master 3S")
+    }
+
+    func testGetNameReturnsNilWhenNoName() throws {
+        let mock = MockHIDDevice()
+        mock.queuedReads = [[0x11, 0x01, 0x08, 0x00, 0x00]]
+        let service = DeviceName(session: HIDPPSession(device: mock), deviceIndex: 1, featureIndex: 0x08)
+        XCTAssertNil(try service.getName())
+    }
+}
+```
+
+Add to `Tests/RatTamerCoreTests/HIDPP/HIDPPSessionTests.swift`:
+
+```swift
+    func testReadProductNameReturnsIoKitNameForNonReceiver() throws {
+        let mock = MockHIDDevice()
+        mock.productName = "MX Master 3S"
+        let session = HIDPPSession(device: mock)
+        XCTAssertEqual(try session.readProductName(deviceIndex: 1), "MX Master 3S")
+        XCTAssertTrue(mock.writeLog.isEmpty)
+    }
+
+    func testReadProductNameQueriesHIDPPForReceiver() throws {
+        let mock = MockHIDDevice()
+        mock.productName = "USB Receiver"
+        var writes = 0
+        mock.onWrite = { _ in
+            writes += 1
+            switch writes {
+            case 1: return [0x10, 0x01, 0x00, 0x01, 0x08]
+            case 2: return [0x11, 0x01, 0x08, 0x00, 0x05]
+            default: return [0x11, 0x01, 0x08, 0x10] + Array("MX 2S".utf8)
+            }
+        }
+        let session = HIDPPSession(device: mock)
+        XCTAssertEqual(try session.readProductName(deviceIndex: 1), "MX 2S")
+    }
+
+    func testReadProductNameFallsBackToIoKitNameWhenFeatureMissing() throws {
+        let mock = MockHIDDevice()
+        mock.productName = "USB Receiver"
+        mock.queuedReads = [[0x10, 0x01, 0x00, 0x01, 0x00]]
+        let session = HIDPPSession(device: mock)
+        XCTAssertEqual(try session.readProductName(deviceIndex: 1), "USB Receiver")
+    }
+```
+
+Add to `Tests/RatTamerCoreTests/HIDPP/BatteryStatusTests.swift`:
+
+```swift
+    func testGetBatteryInfoUnifiedReadsStateFromByteFive() throws {
+        let mock = MockHIDDevice()
+        // 0x1004 unified: capacity [4]=80, charging status [5]=2 (almost full)
+        mock.queuedReads = [[0x11, 0x01, 0x09, 0x00, 0x50, 0x02, 0x14, 0x01]]
+        let service = BatteryStatus(session: HIDPPSession(device: mock), deviceIndex: 1,
+                                    featureIndex: 0x09, featureID: BatteryStatus.unifiedFeatureID)
+        let info = try service.getBatteryInfo()
+        XCTAssertEqual(info.capacity, 80)
+        XCTAssertEqual(info.state, .charging)
+    }
+
+    func testUnifiedFeatureIDIs1004() {
+        XCTAssertEqual(BatteryStatus.unifiedFeatureID, 0x1004)
+    }
+```
+
+Add to `Tests/RatTamerCoreTests/HIDPP/SmartShiftControlsTests.swift`:
+
+```swift
+    func testEnhancedUsesFunctionOneForGet() throws {
+        let mock = MockHIDDevice()
+        mock.queuedReads = [[0x11, 0x01, 0x0D, 0x11, 0x02, 0x1E, 0x1E]]
+        let service = SmartShiftControls(session: HIDPPSession(device: mock), deviceIndex: 1,
+                                         featureIndex: 0x0D, featureID: SmartShiftControls.enhancedFeatureID)
+        let status = try service.getRatchetControlMode()
+        XCTAssertEqual(status?.wheelMode, 2)
+        XCTAssertEqual(mock.writeLog.first?[3] >> 4, 0x01)
+    }
+
+    func testEnhancedUsesFunctionTwoForSet() throws {
+        let mock = MockHIDDevice()
+        let service = SmartShiftControls(session: HIDPPSession(device: mock), deviceIndex: 1,
+                                         featureIndex: 0x0D, featureID: SmartShiftControls.enhancedFeatureID)
+        try service.setRatchetControlMode(status: SmartShiftStatus(wheelMode: 2, autoDisengage: 0x1E, autoDisengageDefault: 0x1E))
+        XCTAssertEqual(mock.writeLog.first?[3] >> 4, 0x02)
+    }
+
+    func testEnhancedFeatureIDIs2111() {
+        XCTAssertEqual(SmartShiftControls.enhancedFeatureID, 0x2111)
+    }
+```
+
+- [ ] **Step 2: Run tests to verify they fail**
+
+Run: `swift test --filter DeviceNameTests` then `swift test --filter HIDPPSessionTests` then `swift test --filter BatteryStatusTests` then `swift test --filter SmartShiftControlsTests`
+Expected: FAIL — `DeviceName`, `readProductName`, `unifiedFeatureID` and `enhancedFeatureID` cannot be found in scope.
+
+- [ ] **Step 3: Implement `DeviceName` (feature 0x0005)**
+
+Create `Sources/RatTamerCore/HIDPP/DeviceName.swift`:
+
+```swift
+import Foundation
+
+public final class DeviceName {
+    public static let featureID: UInt16 = 0x0005
+
+    private let session: HIDPPSession
+    private let deviceIndex: UInt8
+    public let featureIndex: UInt8
+
+    public init(session: HIDPPSession, deviceIndex: UInt8, featureIndex: UInt8) {
+        self.session = session
+        self.deviceIndex = deviceIndex
+        self.featureIndex = featureIndex
+    }
+
+    /// fn 0: getDeviceNameCount — device name length in bytes.
+    public func getNameCount() throws -> Int {
+        guard let resp = try session.request(deviceIndex: deviceIndex,
+                                             featureIndex: featureIndex,
+                                             functionID: 0x00),
+              resp.count >= 5 else { return 0 }
+        return Int(resp[4])
+    }
+
+    /// fn 1: getDeviceName — reads 16-byte chunks until the full name is assembled.
+    public func getName() throws -> String? {
+        let nameLength = try getNameCount()
+        guard nameLength > 0 else { return nil }
+        var name = ""
+        var offset = 0
+        while name.utf8.count < nameLength {
+            let lo = UInt8(offset & 0xFF)
+            let hi = UInt8((offset >> 8) & 0xFF)
+            guard let resp = try session.request(deviceIndex: deviceIndex,
+                                                 featureIndex: featureIndex,
+                                                 functionID: 0x01,
+                                                 params: [lo, hi]),
+                  resp.count > 4 else { return nil }
+            let remaining = nameLength - name.utf8.count
+            let end = min(resp.count, 4 + min(16, remaining))
+            name += String(decoding: resp[4..<end], as: UTF8.self)
+            offset += 16
+        }
+        return name
+    }
+}
+```
+
+- [ ] **Step 4: Add `readProductName` to the session**
+
+In `Sources/RatTamerCore/HIDPP/HIDPPSession.swift`, after the `productName` computed property:
+
+```swift
+    /// Receivers report their own HID name ("USB Receiver"); the real product
+    /// name comes from HID++ feature 0x0005. Returns the IOKit name unless it
+    /// is nil or a known receiver name, in which case it queries the device.
+    public func readProductName(deviceIndex: UInt8) throws -> String? {
+        let name = device.productName
+        let receiverNames: Set<String> = ["USB Receiver", "Logi Receiver", "Receiver"]
+        if let name, !receiverNames.contains(name) { return name }
+        guard let featureIndex = try getFeatureIndex(featureID: DeviceName.featureID, deviceIndex: deviceIndex),
+              featureIndex != 0 else { return name }
+        let service = DeviceName(session: self, deviceIndex: deviceIndex, featureIndex: featureIndex)
+        return try service.getName() ?? name
+    }
+```
+
+- [ ] **Step 5: Add unified battery (0x1004)**
+
+In `Sources/RatTamerCore/HIDPP/BatteryStatus.swift`:
+
+```swift
+    public static let unifiedFeatureID: UInt16 = 0x1004
+```
+
+Change the initializer to `public init(session: HIDPPSession, deviceIndex: UInt8, featureIndex: UInt8, featureID: UInt16 = BatteryStatus.featureID)` and store `public let featureID: UInt16`. In `getBatteryInfo()`, replace `let rawState = resp[6]` with:
+
+```swift
+        let stateIndex = featureID == Self.unifiedFeatureID ? 5 : 6
+        let rawState = resp[stateIndex]
+```
+
+- [ ] **Step 6: Add enhanced SmartShift (0x2111)**
+
+In `Sources/RatTamerCore/HIDPP/SmartShiftControls.swift`, add `public static let enhancedFeatureID: UInt16 = 0x2111`, change the initializer to accept `featureID: UInt16 = SmartShiftControls.featureID` (stored as `public let featureID: UInt16`), and use variant-specific function IDs:
+
+```swift
+    private var getFunctionID: UInt8 { featureID == Self.enhancedFeatureID ? 0x01 : 0x00 }
+    private var setFunctionID: UInt8 { featureID == Self.enhancedFeatureID ? 0x02 : 0x01 }
+```
+
+Use `getFunctionID`/`setFunctionID` in place of the hardcoded `0x00`/`0x01` in `getRatchetControlMode()`/`setRatchetControlMode()`.
+
+- [ ] **Step 7: Run tests to verify they pass**
+
+Run: `swift test --filter DeviceNameTests` then the other three filtered suites.
+Expected: PASS.
+
+- [ ] **Step 8: Run the full suite**
+
+Run: `swift test`
+Expected: all pass (existing `BatteryStatus`/`SmartShiftControls` tests keep compiling via the `featureID` default).
+
+- [ ] **Step 9: Commit**
+
+```bash
+git add Sources/RatTamerCore/HIDPP/DeviceName.swift Sources/RatTamerCore/HIDPP/HIDPPSession.swift Sources/RatTamerCore/HIDPP/BatteryStatus.swift Sources/RatTamerCore/HIDPP/SmartShiftControls.swift Tests/RatTamerCoreTests/HIDPP/DeviceNameTests.swift Tests/RatTamerCoreTests/HIDPP/HIDPPSessionTests.swift Tests/RatTamerCoreTests/HIDPP/BatteryStatusTests.swift Tests/RatTamerCoreTests/HIDPP/SmartShiftControlsTests.swift
+git commit -m "feat: support HID++ 0x0005 device name, 0x1004 battery, 0x2111 SmartShift"
+```
