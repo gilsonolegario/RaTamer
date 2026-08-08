@@ -195,44 +195,92 @@ public final class ActionEngine {
     public static func keyCode(for character: String) -> UInt16? {
         let lower = character.lowercased()
         if lower.count == 1 {
-            if let layoutCode = keyCodeInCurrentLayoutMainThread(for: lower) {
-                return layoutCode
+            if let code = layoutCode(for: lower) {
+                return code
             }
         }
         return staticKeyCode(for: lower)
     }
 
-    private static func keyCodeInCurrentLayoutMainThread(for character: String) -> UInt16? {
+    // Character → virtual key code map for the current keyboard layout.
+    //
+    // TIS/HIToolbox input-source calls must run on the main thread only — they
+    // assert on it, which crashed the button loop — and `DispatchQueue.main.sync`
+    // from the button loop can deadlock when the main thread is busy. So the map
+    // is built entirely on the main thread and the hot path only reads this cache,
+    // never blocking on main. Layout switches invalidate it via the TIS
+    // notification; the map is rebuilt on the next lookup.
+    internal static var layoutCache: [String: UInt16]?
+    private static let layoutLock = NSLock()
+    private static var layoutRefillQueued = false
+
+    private static let layoutChangeObserverToken = DistributedNotificationCenter.default()
+        .addObserver(forName: Notification.Name(kTISNotifySelectedKeyboardInputSourceChanged as String),
+                     object: nil, queue: .main) { _ in
+            ActionEngine.handleKeyboardLayoutChanged()
+        }
+
+    /// Pre-computes the character → key code map for the current layout. Call on
+    /// the main thread (e.g. after the engine connects) so the button loop never
+    /// falls back to the static map on its first press.
+    public static func warmKeyCodeCache() {
+        _ = layoutChangeObserverToken
+        requestLayoutRefill()
+    }
+
+    /// Invalidates the cached layout map. Called when the keyboard layout
+    /// changes; the map is rebuilt on the next lookup.
+    static func handleKeyboardLayoutChanged() {
+        layoutLock.lock()
+        layoutCache = nil
+        layoutLock.unlock()
+    }
+
+    private static func layoutCode(for character: String) -> UInt16? {
+        layoutLock.lock()
+        let cached = layoutCache?[character]
+        layoutLock.unlock()
+        if let cached { return cached }
+        requestLayoutRefill()
         if Thread.isMainThread {
-            return keyCodeInCurrentLayout(for: character)
+            layoutLock.lock()
+            let fresh = layoutCache?[character]
+            layoutLock.unlock()
+            return fresh
         }
-        return DispatchQueue.main.sync {
-            keyCodeInCurrentLayout(for: character)
+        return nil
+    }
+
+    private static func requestLayoutRefill() {
+        layoutLock.lock()
+        guard !layoutRefillQueued else {
+            layoutLock.unlock()
+            return
+        }
+        layoutRefillQueued = true
+        layoutLock.unlock()
+        let refill = {
+            refillLayoutCache()
+            layoutLock.lock()
+            layoutRefillQueued = false
+            layoutLock.unlock()
+        }
+        if Thread.isMainThread {
+            refill()
+        } else {
+            DispatchQueue.main.async(execute: refill)
         }
     }
 
-    private static var layoutCache: (id: String, codes: [String: UInt16])?
-
-    private static func currentLayoutID() -> String? {
-        guard let src = TISCopyCurrentKeyboardInputSource()?.takeUnretainedValue() else { return nil }
-        guard let raw = TISGetInputSourceProperty(src, kTISPropertyInputSourceID) else { return nil }
-        return String(cString: raw.assumingMemoryBound(to: CChar.self))
-    }
-
-    private static func keyCodeInCurrentLayout(for character: String) -> UInt16? {
-        if let cache = layoutCache, cache.id == currentLayoutID(),
-           let code = cache.codes[character] {
-            return code
-        }
-        guard let src = TISCopyCurrentKeyboardInputSource()?.takeUnretainedValue() else { return nil }
-        guard let raw = TISGetInputSourceProperty(src, kTISPropertyUnicodeKeyLayoutData) else { return nil }
+    /// Builds the full character → key code map for the current keyboard layout.
+    /// Must be called on the main thread only.
+    private static func refillLayoutCache() {
+        guard let src = TISCopyCurrentKeyboardInputSource()?.takeUnretainedValue() else { return }
+        guard let raw = TISGetInputSourceProperty(src, kTISPropertyUnicodeKeyLayoutData) else { return }
         let cfData = Unmanaged<CFData>.fromOpaque(raw).takeUnretainedValue()
         let data = cfData as Data
         let layoutPtr = (data as NSData).bytes.assumingMemoryBound(to: UCKeyboardLayout.self)
-        let target = Array(character.utf16)
-        guard target.count == 1 else { return nil }
-        let targetChar = target[0]
-        var found: UInt16?
+        var codes: [String: UInt16] = [:]
         for vk in UInt16(0)...127 {
             var dead: UInt32 = 0
             var outLen = 0
@@ -240,14 +288,15 @@ public final class ActionEngine {
             let status = UCKeyTranslate(layoutPtr, vk, 0, 0,
                                         UInt32(kUCKeyTranslateNoDeadKeysBit), 0,
                                         &dead, 8, &outLen, &out)
-            guard status == noErr, outLen == 1, out[0] == targetChar else { continue }
-            found = vk
-            break
+            guard status == noErr, outLen == 1 else { continue }
+            let chars = String(utf16CodeUnits: out, count: Int(outLen))
+            guard chars.count == 1 else { continue }
+            let key = chars.lowercased()
+            if codes[key] == nil { codes[key] = vk }
         }
-        if let found {
-            layoutCache = (currentLayoutID() ?? "", [character: found])
-        }
-        return found
+        layoutLock.lock()
+        layoutCache = codes
+        layoutLock.unlock()
     }
 
     public static func staticKeyCode(for character: String) -> UInt16? {

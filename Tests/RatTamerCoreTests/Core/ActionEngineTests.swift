@@ -101,6 +101,37 @@ final class ActionEngineTests: XCTestCase {
         XCTAssertEqual(result, 0x0D)
     }
 
+    func testKeyCodeDoesNotDeadlockWhenMainThreadIsBlocked() {
+        let mainBlocked = DispatchSemaphore(value: 0)
+        let done = DispatchSemaphore(value: 0)
+        var result: UInt16?
+
+        DispatchQueue.main.async {
+            mainBlocked.wait()
+        }
+        Thread.sleep(forTimeInterval: 0.1)
+
+        DispatchQueue.global().async {
+            result = ActionEngine.keyCode(for: "w")
+            done.signal()
+        }
+
+        let outcome = done.wait(timeout: .now() + 2)
+        mainBlocked.signal()
+        XCTAssertEqual(outcome, .success, "keyCode blocked waiting on the main thread")
+        XCTAssertEqual(result, 0x0D)
+    }
+
+    func testKeyboardLayoutChangeInvalidatesCache() {
+        ActionEngine.warmKeyCodeCache()
+        XCTAssertNotNil(ActionEngine.layoutCache, "warm up should populate the layout cache")
+        ActionEngine.handleKeyboardLayoutChanged()
+        XCTAssertNil(ActionEngine.layoutCache, "layout change should invalidate the cache")
+        XCTAssertEqual(ActionEngine.keyCode(for: "w"), 0x0D,
+                       "cache should refill on the next lookup")
+        XCTAssertNotNil(ActionEngine.layoutCache)
+    }
+
     func testPunctuationKeyCodesMatchCurrentLayout() throws {
         let src = try XCTUnwrap(TISCopyCurrentKeyboardInputSource()?.takeUnretainedValue())
         let raw = try XCTUnwrap(TISGetInputSourceProperty(src, kTISPropertyUnicodeKeyLayoutData))
