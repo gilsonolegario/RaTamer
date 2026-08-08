@@ -3,5 +3,6 @@ build/
 .DS_Store
 .superpowers/
 specs/
-docs/
+docs/*
 !docs/HIDPP.md
+!docs/TECHNICAL.md
