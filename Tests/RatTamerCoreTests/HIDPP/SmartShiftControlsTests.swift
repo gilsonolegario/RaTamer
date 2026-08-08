@@ -36,6 +36,28 @@ final class SmartShiftControlsTests: XCTestCase {
         XCTAssertEqual(SmartShiftControls.featureID, 0x2110)
     }
 
+    func testEnhancedUsesFunctionOneForGet() throws {
+        let mock = MockHIDDevice()
+        mock.queuedReads = [[0x11, 0x01, 0x0D, 0x11, 0x02, 0x1E, 0x1E]]
+        let service = SmartShiftControls(session: HIDPPSession(device: mock), deviceIndex: 1,
+                                         featureIndex: 0x0D, featureID: SmartShiftControls.enhancedFeatureID)
+        let status = try service.getRatchetControlMode()
+        XCTAssertEqual(status?.wheelMode, 2)
+        XCTAssertEqual(mock.writeLog.first.map { $0[3] >> 4 }, 0x01)
+    }
+
+    func testEnhancedUsesFunctionTwoForSet() throws {
+        let mock = MockHIDDevice()
+        let service = SmartShiftControls(session: HIDPPSession(device: mock), deviceIndex: 1,
+                                         featureIndex: 0x0D, featureID: SmartShiftControls.enhancedFeatureID)
+        try service.setRatchetControlMode(status: SmartShiftStatus(wheelMode: 2, autoDisengage: 0x1E, autoDisengageDefault: 0x1E))
+        XCTAssertEqual(mock.writeLog.first.map { $0[3] >> 4 }, 0x02)
+    }
+
+    func testEnhancedFeatureIDIs2111() {
+        XCTAssertEqual(SmartShiftControls.enhancedFeatureID, 0x2111)
+    }
+
     func testStatusForFreespinIgnoresSensitivity() {
         let status = SmartShiftStatus.status(for: .freespin, sensitivity: 50)
         XCTAssertEqual(status.wheelMode, 1)

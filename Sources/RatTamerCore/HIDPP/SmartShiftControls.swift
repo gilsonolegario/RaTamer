@@ -26,21 +26,28 @@ public struct SmartShiftStatus: Codable, Equatable {
 
 public final class SmartShiftControls {
     public static let featureID: UInt16 = 0x2110
+    public static let enhancedFeatureID: UInt16 = 0x2111
 
     private let session: HIDPPSession
     private let deviceIndex: UInt8
     public let featureIndex: UInt8
+    public let featureID: UInt16
 
-    public init(session: HIDPPSession, deviceIndex: UInt8, featureIndex: UInt8) {
+    private var getFunctionID: UInt8 { featureID == Self.enhancedFeatureID ? 0x01 : 0x00 }
+    private var setFunctionID: UInt8 { featureID == Self.enhancedFeatureID ? 0x02 : 0x01 }
+
+    public init(session: HIDPPSession, deviceIndex: UInt8, featureIndex: UInt8,
+                featureID: UInt16 = SmartShiftControls.featureID) {
         self.session = session
         self.deviceIndex = deviceIndex
         self.featureIndex = featureIndex
+        self.featureID = featureID
     }
 
     public func getRatchetControlMode() throws -> SmartShiftStatus? {
         guard let resp = try session.request(deviceIndex: deviceIndex,
                                              featureIndex: featureIndex,
-                                             functionID: 0x00),
+                                             functionID: getFunctionID),
               resp.count >= 7 else { return nil }
         return SmartShiftStatus(wheelMode: resp[4], autoDisengage: resp[5],
                                 autoDisengageDefault: resp[6])
@@ -49,7 +56,7 @@ public final class SmartShiftControls {
     public func setRatchetControlMode(status: SmartShiftStatus) throws {
         _ = try session.request(deviceIndex: deviceIndex,
                                 featureIndex: featureIndex,
-                                functionID: 0x01,
+                                functionID: setFunctionID,
                                 params: [status.wheelMode, status.autoDisengage,
                                          status.autoDisengageDefault])
     }

@@ -46,15 +46,19 @@ public struct BatteryInfo: Equatable {
 
 public final class BatteryStatus {
     public static let featureID: UInt16 = 0x1000
+    public static let unifiedFeatureID: UInt16 = 0x1004
 
     private let session: HIDPPSession
     private let deviceIndex: UInt8
     private let featureIndex: UInt8
+    public let featureID: UInt16
 
-    public init(session: HIDPPSession, deviceIndex: UInt8, featureIndex: UInt8) {
+    public init(session: HIDPPSession, deviceIndex: UInt8, featureIndex: UInt8,
+                featureID: UInt16 = BatteryStatus.featureID) {
         self.session = session
         self.deviceIndex = deviceIndex
         self.featureIndex = featureIndex
+        self.featureID = featureID
     }
 
     public func getBatteryInfo() throws -> BatteryInfo {
@@ -67,7 +71,8 @@ public final class BatteryStatus {
         }
         let capacity = resp[4]
         let nextCapacity = resp[5]
-        let rawState = resp[6]
+        let stateIndex = featureID == Self.unifiedFeatureID ? 5 : 6
+        let rawState = resp[stateIndex]
         let state = BatteryState.fromRaw(rawState)
         let level: BatteryLevel
         if state == .full {
