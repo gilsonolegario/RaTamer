@@ -16,6 +16,11 @@ final class AppModel: ObservableObject {
             engine?.enabled = remappingEnabled
         }
     }
+    @Published var deviceName = "HID++ device"
+    @Published var capabilities = DeviceCapabilities(hasReprogrammableControls: false,
+                                                     hasBattery: false,
+                                                     hasDPI: false,
+                                                     hasSmartShift: false)
 
     private init() {}
 
@@ -30,6 +35,8 @@ final class AppModel: ObservableObject {
                 case .connected:
                     self?.isConnected = true
                     self?.isReconnecting = false
+                    self?.deviceName = engine.deviceName
+                    self?.capabilities = engine.capabilities
                 case .disconnected:
                     self?.isConnected = false
                     self?.isReconnecting = false

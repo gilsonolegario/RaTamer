@@ -10,10 +10,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menuBar = MenuBarController()
         menuBar?.buildMenu()
         EngineEvents.shared.onConnected = {
-            Notifier.post(title: "RatTamer", body: "MX Master 2S connected")
+            Notifier.post(title: "RatTamer", body: "\(AppModel.shared.deviceName) connected")
         }
         EngineEvents.shared.onDisconnected = {
-            Notifier.post(title: "RatTamer", body: "MX Master 2S disconnected")
+            Notifier.post(title: "RatTamer", body: "\(AppModel.shared.deviceName) disconnected")
         }
         requestAccessibilityIfNeeded()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
