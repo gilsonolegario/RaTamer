@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import RatTamerCore
 
@@ -35,8 +36,40 @@ struct GeneralTabView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            Section("Dock") {
+                DockIconRow()
+                Text("Hides the Dock icon and keeps RatTamer accessible only from the menu bar and popover.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
         .formStyle(.grouped)
+    }
+}
+
+struct DockIconRow: View {
+    @State private var menuBarOnly = false
+    @State private var loaded = false
+
+    var body: some View {
+        Toggle("Menu bar only (hide from Dock)", isOn: $menuBarOnly)
+            .onChange(of: menuBarOnly) { _, _ in
+                guard loaded else { return }
+                apply()
+            }
+            .onAppear(perform: load)
+    }
+
+    private func load() {
+        menuBarOnly = AppModel.shared.configStore.load().menuBarOnly == true
+        loaded = true
+    }
+
+    private func apply() {
+        var config = AppModel.shared.configStore.load()
+        config.menuBarOnly = menuBarOnly
+        try? AppModel.shared.configStore.save(config)
+        NSApp.setActivationPolicy(menuBarOnly ? .accessory : .regular)
     }
 }
 
