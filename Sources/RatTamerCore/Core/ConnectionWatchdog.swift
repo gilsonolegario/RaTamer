@@ -10,6 +10,7 @@ public final class ConnectionWatchdog {
     public private(set) var isConnected: Bool
 
     private let failureThreshold: Int
+    private let lock = NSLock()
     private var failures = 0
 
     public init(isConnected: Bool = true, failureThreshold: Int = 3) {
@@ -18,18 +19,24 @@ public final class ConnectionWatchdog {
     }
 
     public func report(ok: Bool) {
+        lock.lock()
         if ok {
             failures = 0
             if !isConnected {
                 isConnected = true
+                lock.unlock()
                 onReconnected?()
+                return
             }
         } else {
             failures += 1
             if isConnected && failures >= failureThreshold {
                 isConnected = false
+                lock.unlock()
                 onDisconnected?()
+                return
             }
         }
+        lock.unlock()
     }
 }

@@ -157,4 +157,21 @@ final class HIDPPSessionTests: XCTestCase {
         let resp = try session.request(deviceIndex: 1, featureIndex: 0x0A, functionID: 0x03, timeout: 0.1)
         XCTAssertNil(resp)
     }
+
+    func testCloseClosesUnderlyingDevice() {
+        let mock = MockHIDDevice()
+        let session = HIDPPSession(device: mock)
+        XCTAssertFalse(mock.closeCalled)
+        session.close()
+        XCTAssertTrue(mock.closeCalled)
+    }
+
+    func testCloseIsIdempotent() {
+        let mock = MockHIDDevice()
+        let session = HIDPPSession(device: mock)
+        session.close()
+        session.close()
+        session.close()
+        XCTAssertEqual(mock.closeCount, 1)
+    }
 }

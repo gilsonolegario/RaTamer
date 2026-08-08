@@ -12,6 +12,9 @@ public protocol HIDDevice: AnyObject {
     /// loop cannot steal the request's reply.
     func beginRequest()
     func endRequest()
+    /// Releases the underlying device (unregisters callbacks, stops the read
+    /// loop, closes the IOKit handle). No-op for mock/stateless devices.
+    func close()
 }
 
 public extension HIDDevice {
@@ -22,4 +25,6 @@ public extension HIDDevice {
     func beginRequest() {}
 
     func endRequest() {}
+
+    func close() {}
 }

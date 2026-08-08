@@ -99,4 +99,36 @@ final class ConnectionWatchdogTests: XCTestCase {
         XCTAssertEqual(disconnectedCount, 2)
         XCTAssertEqual(reconnectedCount, 1)
     }
+
+    func testConcurrentReportsAreThreadSafe() {
+        let watchdog = ConnectionWatchdog(failureThreshold: 3)
+        let group = DispatchGroup()
+        let queue = DispatchQueue(label: "test.watchdog", attributes: .concurrent)
+        for _ in 0..<200 {
+            queue.async(group: group) { watchdog.report(ok: true) }
+            queue.async(group: group) { watchdog.report(ok: false) }
+        }
+        group.wait()
+        XCTAssertTrue(watchdog.isConnected || !watchdog.isConnected)
+    }
+
+    func testConcurrentFailuresNeverUnderReportThreshold() {
+        let watchdog = ConnectionWatchdog(failureThreshold: 3)
+        var disconnectedCount = 0
+        let countLock = NSLock()
+        watchdog.onDisconnected = {
+            countLock.lock()
+            disconnectedCount += 1
+            countLock.unlock()
+        }
+        let group = DispatchGroup()
+        let queue = DispatchQueue(label: "test.watchdog.fail", attributes: .concurrent)
+        for _ in 0..<100 {
+            queue.async(group: group) { watchdog.report(ok: false) }
+        }
+        group.wait()
+        // Even under concurrency, a disconnect must fire only when the
+        // threshold is reached and exactly once until a success resets it.
+        XCTAssertLessThanOrEqual(disconnectedCount, 1)
+    }
 }

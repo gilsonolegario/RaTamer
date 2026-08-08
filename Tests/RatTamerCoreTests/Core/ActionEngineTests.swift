@@ -241,4 +241,11 @@ final class ActionEngineTests: XCTestCase {
         poster.postMouseClick(button: 3)
         XCTAssertEqual(poster.blockedPostCount, 2, "mouse click should be suppressed and counted")
     }
+
+    func testShutdownRemovesLayoutObserverWithoutCrashing() {
+        ActionEngine.warmKeyCodeCache()
+        ActionEngine.shutdown()
+        ActionEngine.shutdown()
+        ActionEngine.warmKeyCodeCache()
+    }
 }

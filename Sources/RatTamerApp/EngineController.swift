@@ -30,13 +30,10 @@ final class EngineController {
     private var pingTimer: DispatchSourceTimer?
     private static let pingInterval: TimeInterval = 2.0
     private let actionThrottle = ActionThrottle(minInterval: 0.25)
-    private static var lastThrottleLog = Date.distantPast
-    private static let throttleLogInterval: TimeInterval = 5.0
+    private static let throttleLog = RateLimitedLogger(interval: 5.0)
 
     private func logThrottled(_ message: String) {
-        let now = Date()
-        guard now.timeIntervalSince(Self.lastThrottleLog) >= Self.throttleLogInterval else { return }
-        Self.lastThrottleLog = now
+        guard Self.throttleLog.shouldLog() else { return }
         Self.log.error("\(message, privacy: .public)")
     }
 
@@ -227,6 +224,7 @@ final class EngineController {
         scrollWheelTap?.stop()
         loopThread = nil
         monitor = nil
+        session?.close()
         session = nil
     }
 

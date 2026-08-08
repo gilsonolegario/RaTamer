@@ -56,17 +56,14 @@ public final class CGEventPoster: EventPoster {
     /// Number of synthesized events suppressed because Accessibility is missing.
     public private(set) var blockedPostCount = 0
 
-    private static var lastAXLog = Date.distantPast
-    private static let axLogInterval: TimeInterval = 5.0
+    private static let axLog = RateLimitedLogger(interval: 5.0)
 
     public init() {}
 
     private func guardAccessibility() -> Bool {
         guard isAccessibilityTrusted() else {
             blockedPostCount += 1
-            let now = Date()
-            if now.timeIntervalSince(Self.lastAXLog) >= Self.axLogInterval {
-                Self.lastAXLog = now
+            if Self.axLog.shouldLog() {
                 Self.log.error(
                     "Accessibility not granted — suppressing synthesized events (blocked=\(self.blockedPostCount, privacy: .public))"
                 )
@@ -240,19 +237,33 @@ public final class ActionEngine {
     internal static var layoutCache: [String: UInt16]?
     private static let layoutLock = NSLock()
     private static var layoutRefillQueued = false
-
-    private static let layoutChangeObserverToken = DistributedNotificationCenter.default()
-        .addObserver(forName: Notification.Name(kTISNotifySelectedKeyboardInputSourceChanged as String),
-                     object: nil, queue: .main) { _ in
-            ActionEngine.handleKeyboardLayoutChanged()
-        }
+    private static var layoutChangeObserverToken: NSObjectProtocol?
 
     /// Pre-computes the character → key code map for the current layout. Call on
     /// the main thread (e.g. after the engine connects) so the button loop never
     /// falls back to the static map on its first press.
     public static func warmKeyCodeCache() {
-        _ = layoutChangeObserverToken
+        layoutLock.lock()
+        if layoutChangeObserverToken == nil {
+            layoutChangeObserverToken = DistributedNotificationCenter.default()
+                .addObserver(forName: Notification.Name(kTISNotifySelectedKeyboardInputSourceChanged as String),
+                             object: nil, queue: .main) { _ in
+                    ActionEngine.handleKeyboardLayoutChanged()
+                }
+        }
+        layoutLock.unlock()
         requestLayoutRefill()
+    }
+
+    /// Removes the layout-change observer. Idempotent; call when tearing the
+    /// engine down so the notification can never outlive its target.
+    public static func shutdown() {
+        layoutLock.lock()
+        if let token = layoutChangeObserverToken {
+            DistributedNotificationCenter.default().removeObserver(token)
+            layoutChangeObserverToken = nil
+        }
+        layoutLock.unlock()
     }
 
     /// Invalidates the cached layout map. Called when the keyboard layout

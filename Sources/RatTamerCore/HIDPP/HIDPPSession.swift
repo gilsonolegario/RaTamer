@@ -7,6 +7,7 @@ public enum HIDPPSessionError: Error {
 public final class HIDPPSession {
     public let device: HIDDevice
     public let softwareID: UInt8
+    private var isClosed = false
 
     public init(device: HIDDevice, softwareID: UInt8 = 1) {
         self.device = device
@@ -112,5 +113,12 @@ public final class HIDPPSession {
         while Date() < deadline {
             _ = try readReport(timeout: 0.05)
         }
+    }
+
+    /// Closes the underlying device exactly once. Safe to call repeatedly.
+    public func close() {
+        guard !isClosed else { return }
+        isClosed = true
+        device.close()
     }
 }

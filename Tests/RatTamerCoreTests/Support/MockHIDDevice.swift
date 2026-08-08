@@ -7,6 +7,13 @@ final class MockHIDDevice: HIDDevice {
     var onWrite: (([UInt8]) -> [UInt8]?)?
     var onRemoved: (() -> Void)?
     var inFlightRequests = 0
+    private(set) var closeCalled = false
+    private(set) var closeCount = 0
+
+    func close() {
+        closeCalled = true
+        closeCount += 1
+    }
 
     func write(_ bytes: [UInt8]) throws {
         writeLog.append(bytes)
