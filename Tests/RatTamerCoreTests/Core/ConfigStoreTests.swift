@@ -313,4 +313,23 @@ final class ConfigStoreTests: XCTestCase {
         let loaded = ConfigStore(fileURL: url).load()
         XCTAssertEqual(loaded.dpiCycleValues, [1000, 1600, 2000, 4000])
     }
+
+    func testMenuBarOnlyDecodesNilWhenAbsent() throws {
+        let url = tempDir.appendingPathComponent("no-menubar.json")
+        try #"""
+        {"version":2,"deviceIndex":1,"buttons":{}}
+        """#.write(to: url, atomically: true, encoding: .utf8)
+        let loaded = ConfigStore(fileURL: url).load()
+        XCTAssertNil(loaded.menuBarOnly)
+    }
+
+    func testMenuBarOnlyRoundTripsThroughStore() throws {
+        let url = tempDir.appendingPathComponent("menubar.json")
+        let store = ConfigStore(fileURL: url)
+        var config = Config.empty()
+        config.menuBarOnly = true
+        try store.save(config)
+        let loaded = ConfigStore(fileURL: url).load()
+        XCTAssertEqual(loaded.menuBarOnly, true)
+    }
 }

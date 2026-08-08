@@ -168,6 +168,7 @@ public struct Config: Codable, Equatable {
     public var dpiValue: UInt16?
     public var dpiCycleValues: [UInt16]?
     public var invertScrollDirection: Bool?
+    public var menuBarOnly: Bool?
     public var thumbWheelLeft: ButtonAction?
     public var thumbWheelRight: ButtonAction?
 
@@ -175,7 +176,7 @@ public struct Config: Codable, Equatable {
         case version, deviceIndex, buttons, dpiFeatureIndex, dpiDeviceIndex,
              dpiDownValue, dpiAction, swapLeftRight, smartShiftMode, dpiValue,
              invertScrollDirection, thumbWheelLeft, thumbWheelRight,
-             smartShiftSensitivity, dpiCycleValues
+             smartShiftSensitivity, dpiCycleValues, menuBarOnly
     }
 
     public init(from decoder: Decoder) throws {
@@ -193,6 +194,7 @@ public struct Config: Codable, Equatable {
         dpiValue = try c.decodeIfPresent(UInt16.self, forKey: .dpiValue)
         dpiCycleValues = try c.decodeIfPresent([UInt16].self, forKey: .dpiCycleValues)
         invertScrollDirection = try c.decodeIfPresent(Bool.self, forKey: .invertScrollDirection)
+        menuBarOnly = try c.decodeIfPresent(Bool.self, forKey: .menuBarOnly)
         thumbWheelLeft = try c.decodeIfPresent(ButtonAction.self, forKey: .thumbWheelLeft)
         thumbWheelRight = try c.decodeIfPresent(ButtonAction.self, forKey: .thumbWheelRight)
     }
@@ -224,6 +226,7 @@ public struct Config: Codable, Equatable {
         self.dpiValue = dpiValue
         self.dpiCycleValues = dpiCycleValues
         self.invertScrollDirection = nil
+        self.menuBarOnly = nil
         self.thumbWheelLeft = thumbWheelLeft
         self.thumbWheelRight = thumbWheelRight
     }
