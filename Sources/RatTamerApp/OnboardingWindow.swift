@@ -5,6 +5,8 @@ import RatTamerCore
 final class OnboardingWindow {
     static let shared = OnboardingWindow()
     private var window: NSWindow?
+    /// Called after the window closes so the app can hand off to its main UI.
+    var onFinish: (() -> Void)?
 
     private init() {}
 
@@ -23,10 +25,15 @@ final class OnboardingWindow {
         window?.close()
     }
 
+    private func finish() {
+        close()
+        onFinish?()
+    }
+
     private func makeWindowIfNeeded() {
         guard window == nil else { return }
         let view = OnboardingView {
-            self.close()
+            self.finish()
         }
         let hosting = NSHostingController(rootView: view)
         hosting.sizingOptions = [.preferredContentSize]

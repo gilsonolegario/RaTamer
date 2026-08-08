@@ -23,16 +23,27 @@ final class MenuBarController: NSObject {
         self.hosting = hosting
     }
 
-    @objc private func togglePopover(_ sender: Any?) {
+    @objc func togglePopover(_ sender: Any?) {
         guard let button = statusItem?.button else { return }
         if let popover, popover.isShown {
             popover.performClose(sender)
         } else {
-            if let hosting {
-                popover?.contentSize = hosting.view.fittingSize
-            }
-            popover?.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
-            NSApp.activate(ignoringOtherApps: true)
+            showPopover(from: button)
         }
+    }
+
+    /// Shows the popover anchored to the status item. Used by onboarding to
+    /// hand off to the main UI once setup finishes.
+    func showPopover() {
+        guard let button = statusItem?.button else { return }
+        showPopover(from: button)
+    }
+
+    private func showPopover(from button: NSStatusBarButton) {
+        if let hosting {
+            popover?.contentSize = hosting.view.fittingSize
+        }
+        popover?.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        NSApp.activate(ignoringOtherApps: true)
     }
 }

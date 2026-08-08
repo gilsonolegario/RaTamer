@@ -16,6 +16,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         requestAccessibilityIfNeeded()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            OnboardingWindow.shared.onFinish = { [weak self] in
+                self?.menuBar?.showPopover()
+            }
             OnboardingWindow.shared.showIfNeeded()
         }
     }
