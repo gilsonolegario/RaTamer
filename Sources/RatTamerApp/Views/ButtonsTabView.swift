@@ -258,12 +258,14 @@ struct ButtonsTabView: View {
                     Image(systemName: "checkmark")
                 }
             }
-            Button {
-                setSmartShiftMode(.smartshift)
-            } label: {
-                Label("SmartShift (auto)", systemImage: "bolt.badge.automatic")
-                if mode == .smartshift {
-                    Image(systemName: "checkmark")
+            if model.capabilities.hasSmartShift {
+                Button {
+                    setSmartShiftMode(.smartshift)
+                } label: {
+                    Label("SmartShift (auto)", systemImage: "bolt.badge.automatic")
+                    if mode == .smartshift {
+                        Image(systemName: "checkmark")
+                    }
                 }
             }
         } label: {
