@@ -174,4 +174,16 @@ final class HIDPPSessionTests: XCTestCase {
         session.close()
         XCTAssertEqual(mock.closeCount, 1)
     }
+
+    func testProductNameDefaultsToNilForDeviceWithoutName() {
+        let session = HIDPPSession(device: MockHIDDevice())
+        XCTAssertNil(session.productName)
+    }
+
+    func testProductNameForwardsFromDevice() {
+        let mock = MockHIDDevice()
+        mock.productName = "MX Master 3S"
+        let session = HIDPPSession(device: mock)
+        XCTAssertEqual(session.productName, "MX Master 3S")
+    }
 }

@@ -6,6 +6,7 @@ final class MockHIDDevice: HIDDevice {
     var queuedReads: [[UInt8]] = []
     var onWrite: (([UInt8]) -> [UInt8]?)?
     var onRemoved: (() -> Void)?
+    var productName: String?
     var inFlightRequests = 0
     private(set) var closeCalled = false
     private(set) var closeCount = 0

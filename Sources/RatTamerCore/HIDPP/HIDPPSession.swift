@@ -7,6 +7,7 @@ public enum HIDPPSessionError: Error {
 public final class HIDPPSession {
     public let device: HIDDevice
     public let softwareID: UInt8
+    public var productName: String? { device.productName }
     private var isClosed = false
 
     public init(device: HIDDevice, softwareID: UInt8 = 1) {
