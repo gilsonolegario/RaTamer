@@ -1,4 +1,4 @@
-![App icon](screenshots/icone.png)
+<img src="screenshots/icone.png" alt="App icon" width="128">
 
 # RatTamer
 
@@ -12,7 +12,7 @@ A native macOS menu bar app that replaces Logitech Options+ for the MX Master 2S
 
 ## Download
 
-There is no pre-built release yet — build the app locally in one step:
+Grab the latest pre-built app from the [Releases page](https://github.com/gilsonolegario/RaTamer/releases) — or build it locally:
 
 ```bash
 ./scripts/build-app.sh    # produces build/RatTamer.app (ad-hoc signed)
@@ -24,7 +24,7 @@ or run straight from the source tree:
 swift run RatTamer        # development mode, no app bundle
 ```
 
-The bundle is only needed for "Start at login" (via `SMAppService`). See [Distribution](#distribution) for why there is no signed/notarized download.
+The bundle is only needed for "Start at login" (via `SMAppService`). See [Distribution](#distribution) for the notarization caveats of the pre-built download.
 
 ## Major features
 
