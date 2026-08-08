@@ -25,6 +25,9 @@ final class EngineController {
     private var cachedConfig: Config
     private let configLock = NSLock()
     private let ioQueue = DispatchQueue(label: "com.rattamer.io")
+    private var watchdog: ConnectionWatchdog?
+    private var pingTimer: DispatchSourceTimer?
+    private static let pingInterval: TimeInterval = 2.0
 
     var enabled: Bool {
         get {
@@ -79,6 +82,7 @@ final class EngineController {
 
     func start() -> Bool {
         stopped = false
+        ActionEngine.warmKeyCodeCache()
         do {
             let device = try HIDLocator.openReceiver()
             let session = HIDPPSession(device: device)
@@ -141,6 +145,7 @@ final class EngineController {
 
             refreshConfig()
             applyAll(controlsService: controlsService)
+            setupWatchdog()
             startLoopThread(monitor: monitor)
             isConnected = true
             EngineEvents.shared.onConnected?()
@@ -198,6 +203,9 @@ final class EngineController {
 
     func stop() {
         stopped = true
+        pingTimer?.cancel()
+        pingTimer = nil
+        watchdog = nil
         restoreNativeDiverts()
         gestureDetector.end()
         gestureCID = nil
@@ -291,6 +299,45 @@ final class EngineController {
         guard let invert = currentConfig().invertScrollDirection else { return }
         Self.log.info("scroll invert: \(invert)")
         try? service.setInverted(invert)
+    }
+
+    private func setupWatchdog() {
+        let watchdog = ConnectionWatchdog(failureThreshold: 3)
+        watchdog.onDisconnected = { [weak self] in
+            guard let self else { return }
+            Self.log.info("device lost (3 failed pings)")
+            EngineEvents.shared.onDisconnected?()
+            DispatchQueue.main.async { [weak self] in
+                self?.isConnected = false
+                self?.onStatus?("Disconnected")
+            }
+        }
+        watchdog.onReconnected = { [weak self] in
+            guard let self else { return }
+            Self.log.info("device back (ping answered)")
+            EngineEvents.shared.onConnected?()
+            self.ioQueue.async { [weak self] in
+                guard let self, let controlsService = self.controlsService, !self.stopped else { return }
+                self.applyAll(controlsService: controlsService)
+            }
+            DispatchQueue.main.async { [weak self] in
+                self?.isConnected = true
+                self?.onStatus?("Connected — \(self?.controls.count ?? 0) controls")
+            }
+        }
+        self.watchdog = watchdog
+
+        let timer = DispatchSource.makeTimerSource(queue: ioQueue)
+        timer.schedule(deadline: .now() + Self.pingInterval,
+                       repeating: Self.pingInterval,
+                       leeway: .milliseconds(200))
+        timer.setEventHandler { [weak self] in
+            guard let self, let session = self.session, !self.stopped else { return }
+            let answered = (try? session.ping(deviceIndex: self.deviceIndex)) ?? false
+            self.watchdog?.report(ok: answered)
+        }
+        timer.resume()
+        pingTimer = timer
     }
 
     private func startLoopThread(monitor: DivertedButtonMonitor) {

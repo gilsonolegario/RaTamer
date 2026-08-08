@@ -5,6 +5,8 @@ final class MockHIDDevice: HIDDevice {
     var writeLog: [[UInt8]] = []
     var queuedReads: [[UInt8]] = []
     var onWrite: (([UInt8]) -> [UInt8]?)?
+    var onRemoved: (() -> Void)?
+    var inFlightRequests = 0
 
     func write(_ bytes: [UInt8]) throws {
         writeLog.append(bytes)
@@ -13,7 +15,26 @@ final class MockHIDDevice: HIDDevice {
         }
     }
 
+    /// Mirrors the real wrapper: while a synchronous request is in flight,
+    /// `read` must not consume reports so it cannot steal the request's reply.
     func read(timeout: TimeInterval) throws -> [UInt8]? {
+        guard inFlightRequests == 0 else { return nil }
+        return readFromQueue()
+    }
+
+    func readForRequest(timeout: TimeInterval) throws -> [UInt8]? {
+        readFromQueue()
+    }
+
+    func beginRequest() {
+        inFlightRequests += 1
+    }
+
+    func endRequest() {
+        inFlightRequests -= 1
+    }
+
+    private func readFromQueue() -> [UInt8]? {
         guard !queuedReads.isEmpty else { return nil }
         return queuedReads.removeFirst()
     }

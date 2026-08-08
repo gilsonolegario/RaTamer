@@ -11,6 +11,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         EngineEvents.shared.onConnected = {
             Notifier.post(title: "RatTamer", body: "MX Master 2S connected")
         }
+        EngineEvents.shared.onDisconnected = {
+            Notifier.post(title: "RatTamer", body: "MX Master 2S disconnected")
+        }
         requestAccessibilityIfNeeded()
     }
 

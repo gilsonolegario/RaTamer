@@ -27,6 +27,32 @@ do {
         }
     }
 
+    if CommandLine.arguments.contains("--ping") {
+        print("Ping probe: sending short ping to Root, dumping raw replies for 2s...")
+        for _ in 0..<5 {
+            try session.sendShort(deviceIndex: 1, featureIndex: 0, functionID: 0,
+                                  params: [0x00, 0x00, 0x00])
+            let deadline = Date().addingTimeInterval(0.4)
+            var answered = false
+            while Date() < deadline {
+                if let resp = try session.readReport(timeout: 0.1) {
+                    let hex = resp.map { String(format: "%02X", $0) }.joined(separator: " ")
+                    print("  reply: \(hex)")
+                    answered = true
+                }
+            }
+            print("  ping \(answered ? "OK" : "NO REPLY")")
+            Thread.sleep(forTimeInterval: 0.3)
+        }
+        print("session.ping (validated):")
+        for _ in 0..<3 {
+            let ok = (try? session.ping(deviceIndex: 1)) ?? false
+            print("  ping(deviceIndex:1) = \(ok)")
+            Thread.sleep(forTimeInterval: 0.3)
+        }
+        exit(0)
+    }
+
     if let thumbIndex = try session.getFeatureIndex(featureID: 0x2150, deviceIndex: 1) {
         if let resp = try session.request(deviceIndex: 1, featureIndex: thumbIndex,
                                           functionID: 0x00), resp.count >= 7 {

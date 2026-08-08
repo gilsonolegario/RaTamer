@@ -68,11 +68,55 @@ final class HIDPPSessionTests: XCTestCase {
         XCTAssertTrue(answered)
     }
 
+    func testPingAcceptsLongResponseFromReceiver() throws {
+        // Real Unifying receivers answer a short ping with a LONG root reply:
+        // reportID 0x11, devIndex, feature 0x00 (root), function|swID, params.
+        let mock = MockHIDDevice()
+        mock.onWrite = { _ in
+            [0x11, 0x01, 0x00, 0x01, 0x00, 0x00, 0x01,
+             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+             0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+        }
+        let session = HIDPPSession(device: mock)
+        let answered = try session.ping(deviceIndex: 1)
+        XCTAssertTrue(answered)
+    }
+
     func testPingReturnsFalseWhenNoAnswer() throws {
         let mock = MockHIDDevice()
         let session = HIDPPSession(device: mock)
         let answered = try session.ping(deviceIndex: 3)
         XCTAssertFalse(answered)
+    }
+
+    func testPingSucceedsWhileARequestIsInFlight() throws {
+        let mock = MockHIDDevice()
+        mock.inFlightRequests = 1
+        mock.onWrite = { _ in [0x10, 0x01, 0x00, 0x01, 0x00] }
+        let session = HIDPPSession(device: mock)
+        let answered = try session.ping(deviceIndex: 1)
+        XCTAssertTrue(answered)
+    }
+
+    func testPingIgnoresErrorResponse() throws {
+        let mock = MockHIDDevice()
+        mock.queuedReads = [
+            [0x10, 0x01, 0x00, 0x8F, 0x09, 0x00, 0x00],   // HID++ error (0x8F) — device not present
+        ]
+        let session = HIDPPSession(device: mock)
+        let answered = try session.ping(deviceIndex: 1)
+        XCTAssertFalse(answered)
+    }
+
+    func testPingSkipsUnrelatedReportsThenAcceptsRootReply() throws {
+        let mock = MockHIDDevice()
+        mock.queuedReads = [
+            [0x11, 0x01, 0x0A, 0x31, 0x00, 0x00, 0x00, 0x00, 0x00],   // unrelated feature reply
+            [0x10, 0x01, 0x00, 0x01, 0x00],                            // the real root ping reply
+        ]
+        let session = HIDPPSession(device: mock)
+        let answered = try session.ping(deviceIndex: 1)
+        XCTAssertTrue(answered)
     }
 
     func testRequestWritesLongPacketAndReturnsMatchingResponse() throws {
