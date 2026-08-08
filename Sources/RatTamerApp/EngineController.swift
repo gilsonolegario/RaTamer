@@ -1,4 +1,5 @@
 import AppKit
+import ApplicationServices
 import Foundation
 import RatTamerCore
 import os
@@ -28,6 +29,16 @@ final class EngineController {
     private var watchdog: ConnectionWatchdog?
     private var pingTimer: DispatchSourceTimer?
     private static let pingInterval: TimeInterval = 2.0
+    private let actionThrottle = ActionThrottle(minInterval: 0.25)
+    private static var lastThrottleLog = Date.distantPast
+    private static let throttleLogInterval: TimeInterval = 5.0
+
+    private func logThrottled(_ message: String) {
+        let now = Date()
+        guard now.timeIntervalSince(Self.lastThrottleLog) >= Self.throttleLogInterval else { return }
+        Self.lastThrottleLog = now
+        Self.log.error("\(message, privacy: .public)")
+    }
 
     var enabled: Bool {
         get {
@@ -149,8 +160,12 @@ final class EngineController {
             startLoopThread(monitor: monitor)
             isConnected = true
             EngineEvents.shared.onConnected?()
-            onStatus?("Connected — \(controls.count) controls")
-            scrollWheelTap?.start()
+            if AXIsProcessTrusted() {
+                scrollWheelTap?.start()
+                onStatus?("Connected — \(controls.count) controls")
+            } else {
+                onStatus?("Connected — conceda Acessibilidade para atalhos/gestos")
+            }
             return true
         } catch {
             isConnected = false
@@ -365,6 +380,15 @@ final class EngineController {
             Self.log.info("press cid=0x\(String(format: "%04X", cid), privacy: .public) ignored (no action)")
             return
         }
+        let stateKey = "press-state-\(cid)"
+        guard actionThrottle.acquire(stateKey) else {
+            logThrottled("press cid=0x\(String(format: "%04X", cid)) repeated while already pressed — ignored")
+            return
+        }
+        guard actionThrottle.shouldFire("press-\(cid)") else {
+            logThrottled("press cid=0x\(String(format: "%04X", cid)) throttled — ignored")
+            return
+        }
         Self.log.info("press cid=0x\(String(format: "%04X", cid), privacy: .public) action=\(String(describing: action), privacy: .public)")
         if case .gesture(let gestureConfig) = action {
             gestureDetector.begin(config: gestureConfig)
@@ -385,6 +409,7 @@ final class EngineController {
     }
 
     private func handleRelease(_ cid: UInt16) {
+        actionThrottle.release("press-state-\(cid)")
         if gestureCID == cid {
             gestureCID = nil
             gestureDetector.end()
@@ -413,6 +438,8 @@ final class EngineController {
         guard let action = thumbWheelConfigAction(direction), action != .disabled else { return }
         ioQueue.async { [weak self] in
             guard let self, !self.stopped else { return }
+            let key = direction == .left ? "wheel-left" : "wheel-right"
+            guard self.actionThrottle.shouldFire(key) else { return }
             do {
                 try self.actionEngine.execute(action)
             } catch {

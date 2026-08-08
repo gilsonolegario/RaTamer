@@ -1,6 +1,7 @@
 import Foundation
 import CoreGraphics
 import Carbon
+import ApplicationServices
 import os
 
 public protocol EventPoster {
@@ -49,9 +50,34 @@ public struct ProcessScriptRunner: ScriptRunner {
 public final class CGEventPoster: EventPoster {
     private static let log = Logger(subsystem: "com.rattamer", category: "engine")
 
+    /// Injectable trust check so tests can simulate a missing Accessibility grant.
+    public var isAccessibilityTrusted: () -> Bool = { AXIsProcessTrusted() }
+
+    /// Number of synthesized events suppressed because Accessibility is missing.
+    public private(set) var blockedPostCount = 0
+
+    private static var lastAXLog = Date.distantPast
+    private static let axLogInterval: TimeInterval = 5.0
+
     public init() {}
 
+    private func guardAccessibility() -> Bool {
+        guard isAccessibilityTrusted() else {
+            blockedPostCount += 1
+            let now = Date()
+            if now.timeIntervalSince(Self.lastAXLog) >= Self.axLogInterval {
+                Self.lastAXLog = now
+                Self.log.error(
+                    "Accessibility not granted — suppressing synthesized events (blocked=\(self.blockedPostCount, privacy: .public))"
+                )
+            }
+            return false
+        }
+        return true
+    }
+
     public func postKey(_ keyCode: UInt16, down: Bool, flags: CGEventFlags) {
+        guard guardAccessibility() else { return }
         if down {
             for (flag, code) in Self.modifierKeys where flags.contains(flag) {
                 postRaw(code, down: true)
@@ -83,6 +109,7 @@ public final class CGEventPoster: EventPoster {
     }
 
     public func postMouseClick(button: UInt8) {
+        guard guardAccessibility() else { return }
         let location = CGEvent(source: nil)?.location ?? .zero
         let down = CGEvent(
             mouseEventSource: nil, mouseType: .otherMouseDown,

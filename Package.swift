@@ -17,6 +17,7 @@ let package = Package(
                 .linkedFramework("IOKit"),
                 .linkedFramework("CoreGraphics"),
                 .linkedFramework("Carbon"),
+                .linkedFramework("ApplicationServices"),
             ]
         ),
         .executableTarget(

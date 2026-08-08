@@ -232,4 +232,13 @@ final class ActionEngineTests: XCTestCase {
             "set volume output volume ((output volume of (get volume settings)) - 3)"
         ])
     }
+
+    func testPosterSuppressesSynthesizedEventsWithoutAccessibility() {
+        let poster = CGEventPoster()
+        poster.isAccessibilityTrusted = { false }
+        poster.postKey(0x0D, down: true, flags: [])
+        XCTAssertEqual(poster.blockedPostCount, 1, "key down should be suppressed and counted")
+        poster.postMouseClick(button: 3)
+        XCTAssertEqual(poster.blockedPostCount, 2, "mouse click should be suppressed and counted")
+    }
 }

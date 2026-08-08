@@ -28,6 +28,9 @@ cat > "$APP/Contents/Info.plist" <<'EOF'
 </plist>
 EOF
 chmod +x "$APP/Contents/MacOS/RatTamer"
+if [ -z "${CODESIGN_IDENTITY:-}" ]; then
+    CODESIGN_IDENTITY="$(security find-identity 2>/dev/null | awk '/RatTamer Local Signing/ {print $2; exit}')"
+fi
 CODESIGN_IDENTITY="${CODESIGN_IDENTITY:--}"
 codesign --force --sign "$CODESIGN_IDENTITY" "$APP"
 echo "Built and signed $APP"
