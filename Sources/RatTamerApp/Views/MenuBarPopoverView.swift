@@ -6,8 +6,9 @@ struct MenuBarPopoverView: View {
     @ObservedObject private var battery = BatteryMonitor.shared
     @ObservedObject private var loginItem = LoginItem.shared
     @State private var hoveredRow: String?
-    @State private var volume: Double = 50
-    @State private var volumeLoaded = false
+    @State private var dpi: Double = 1000
+    @State private var dpiValues: [UInt16] = []
+    @State private var dpiLoaded = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -27,7 +28,7 @@ struct MenuBarPopoverView: View {
 
             separator
 
-            volumeRow
+            dpiRow
 
             separator
 
@@ -59,7 +60,7 @@ struct MenuBarPopoverView: View {
         .frame(width: 280)
         .onAppear {
             BatteryMonitor.shared.start()
-            loadVolume()
+            loadDPI()
         }
         .onDisappear { BatteryMonitor.shared.stop() }
     }
@@ -71,39 +72,72 @@ struct MenuBarPopoverView: View {
             .padding(.horizontal, 4)
     }
 
-    private var volumeRow: some View {
+    private var dpiRow: some View {
         VStack(spacing: 4) {
             HStack(spacing: 8) {
-                Image(systemName: "speaker.wave.2.fill")
+                Image(systemName: "scope")
                     .font(.system(size: 13))
                     .foregroundStyle(.secondary)
                     .frame(width: 16)
-                Text("Volume")
+                Text("Pointer Resolution")
                     .font(.callout)
                 Spacer()
-                Text("\(Int(volume))%")
+                if dpiAvailable {
+                    Text("\(Int(dpi)) DPI")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                }
+            }
+            if dpiAvailable {
+                Slider(value: $dpi, in: dpiRange, step: dpiStep) { editing in
+                    if !editing { applyDPI() }
+                }
+                .controlSize(.small)
+            } else {
+                Text("DPI feature unavailable on this device")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                    .monospacedDigit()
             }
-            Slider(value: $volume, in: 0...100, step: 1) { editing in
-                if !editing { applyVolume() }
-            }
-            .controlSize(.small)
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
     }
 
-    private func loadVolume() {
-        volumeLoaded = false
-        volume = Double(SystemVolume.current() ?? 50)
-        volumeLoaded = true
+    private var dpiAvailable: Bool {
+        dpiValues.count > 1
     }
 
-    private func applyVolume() {
-        guard volumeLoaded else { return }
-        SystemVolume.set(Int(volume))
+    private var dpiRange: ClosedRange<Double> {
+        Double(dpiValues.first ?? 0)...Double(dpiValues.last ?? 0)
+    }
+
+    private var dpiStep: Double {
+        guard dpiValues.count >= 2 else { return 1 }
+        let gaps = zip(dpiValues.dropFirst(), dpiValues).map { Double($0 - $1) }
+        return gaps.min() ?? 1
+    }
+
+    private func loadDPI() {
+        guard let service = AppModel.shared.engine?.dpiService else { return }
+        dpiValues = (try? service.getSensorDpiList(sensor: 0)) ?? []
+        guard dpiAvailable else { return }
+        dpiLoaded = false
+        let stored = AppModel.shared.configStore.load().dpiValue
+        if let stored {
+            dpi = Double(stored)
+        } else if let info = try? service.getSensorDpi(sensor: 0) {
+            dpi = Double(info.dpi)
+        }
+        dpiLoaded = true
+    }
+
+    private func applyDPI() {
+        guard dpiLoaded else { return }
+        var config = AppModel.shared.configStore.load()
+        config.dpiValue = UInt16(dpi)
+        try? AppModel.shared.configStore.save(config)
+        AppModel.shared.engine?.applyConfig()
     }
 
     private func batteryRow(for info: BatteryInfo) -> some View {
