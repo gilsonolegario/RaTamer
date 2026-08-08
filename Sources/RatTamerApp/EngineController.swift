@@ -356,7 +356,8 @@ final class EngineController {
             guard let self, !self.stopped else { return }
             let config = self.currentConfig()
             let current = config.dpiValue ?? (try? service.getSensorDpi(sensor: 0))?.dpi ?? 0
-            let presets = config.dpiCycleValues ?? DPICycle.defaultPresets
+            let sensorList = (try? service.getSensorDpiList(sensor: 0)) ?? []
+            let presets = config.dpiCycleValues ?? DPICycle.recommendedPresets(from: sensorList)
             guard let next = DPICycle.next(current: current, presets: presets) else { return }
             var newConfig = config
             newConfig.dpiValue = next
