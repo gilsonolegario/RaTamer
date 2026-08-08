@@ -114,6 +114,7 @@ extension NSColor {
 
 let arguments = CommandLine.arguments
 let baseDir = URL(fileURLWithPath: arguments.dropFirst().first ?? "build/icon")
+let sourcePath = arguments.dropFirst().dropFirst().first
 let iconsetDir = baseDir.appendingPathComponent("RatTamer.iconset")
 try? FileManager.default.removeItem(at: iconsetDir)
 try? FileManager.default.createDirectory(at: iconsetDir, withIntermediateDirectories: true)
@@ -125,6 +126,50 @@ func savePNG(_ rep: NSBitmapImageRep, to url: URL) throws {
     try data.write(to: url)
 }
 
+// Optional source image: when given, it is downsampled to every icon size
+// instead of using the programmatically drawn mouse. This lets the app icon
+// come from a 1024x1024 PNG (e.g. screenshots/icone.png).
+var sourceImage: NSBitmapImageRep?
+if let sourcePath, let image = NSImage(contentsOfFile: sourcePath) {
+    if let tiff = image.tiffRepresentation, let rep = NSBitmapImageRep(data: tiff) {
+        sourceImage = rep
+        print("icon source: \(sourcePath) (\(rep.pixelsWide)x\(rep.pixelsHigh))")
+    }
+}
+
+func resize(_ source: NSBitmapImageRep, to size: CGFloat) -> NSBitmapImageRep {
+    let rep = NSBitmapImageRep(bitmapDataPlanes: nil,
+                               pixelsWide: Int(size),
+                               pixelsHigh: Int(size),
+                               bitsPerSample: 8,
+                               samplesPerPixel: 4,
+                               hasAlpha: true,
+                               isPlanar: false,
+                               colorSpaceName: .deviceRGB,
+                               bytesPerRow: 0,
+                               bitsPerPixel: 0)!
+    rep.size = NSSize(width: size, height: size)
+    NSGraphicsContext.saveGraphicsState()
+    NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+    NSGraphicsContext.current?.imageInterpolation = .high
+
+    // Aspect-fit: keep the source's aspect ratio inside the square canvas so
+    // non-square sources are centered with transparent margins, never stretched.
+    let sw = CGFloat(source.pixelsWide)
+    let sh = CGFloat(source.pixelsHigh)
+    let scale = min(size / sw, size / sh)
+    let dw = sw * scale
+    let dh = sh * scale
+    source.draw(in: NSRect(x: (size - dw) / 2, y: (size - dh) / 2, width: dw, height: dh),
+                from: NSRect(x: 0, y: 0, width: source.pixelsWide, height: source.pixelsHigh),
+                operation: .copy,
+                fraction: 1.0,
+                respectFlipped: false,
+                hints: [:])
+    NSGraphicsContext.restoreGraphicsState()
+    return rep
+}
+
 let sizes: [(String, CGFloat)] = [
     ("icon_16x16.png", 16), ("icon_16x16@2x.png", 32),
     ("icon_32x32.png", 32), ("icon_32x32@2x.png", 64),
@@ -133,7 +178,12 @@ let sizes: [(String, CGFloat)] = [
     ("icon_512x512.png", 512), ("icon_512x512@2x.png", 1024),
 ]
 for (name, size) in sizes {
-    let rep = renderIcon(size: size)
+    let rep: NSBitmapImageRep
+    if let sourceImage {
+        rep = resize(sourceImage, to: size)
+    } else {
+        rep = renderIcon(size: size)
+    }
     try savePNG(rep, to: iconsetDir.appendingPathComponent(name))
 }
 

@@ -3,8 +3,9 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 SCRATCH="${RATTAMER_SCRATCH:-$TMPDIR/rattamer-build}"
+ICON_SRC="${ICON_SRC:-$ROOT/screenshots/icone.png}"
 swift build -c release --scratch-path "$SCRATCH"
-swift run IconGen
+swift run IconGen "$ROOT/build/icon" "$ICON_SRC"
 BIN="$SCRATCH/arm64-apple-macosx/release/RatTamer"
 APP="$ROOT/build/RatTamer.app"
 rm -rf "$APP"

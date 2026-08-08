@@ -4,3 +4,4 @@ build/
 .superpowers/
 specs/
 docs/
+!docs/HIDPP.md
