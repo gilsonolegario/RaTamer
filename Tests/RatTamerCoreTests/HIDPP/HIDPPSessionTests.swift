@@ -174,4 +174,48 @@ final class HIDPPSessionTests: XCTestCase {
         session.close()
         XCTAssertEqual(mock.closeCount, 1)
     }
+
+    func testProductNameDefaultsToNilForDeviceWithoutName() {
+        let session = HIDPPSession(device: MockHIDDevice())
+        XCTAssertNil(session.productName)
+    }
+
+    func testProductNameForwardsFromDevice() {
+        let mock = MockHIDDevice()
+        mock.productName = "MX Master 3S"
+        let session = HIDPPSession(device: mock)
+        XCTAssertEqual(session.productName, "MX Master 3S")
+    }
+
+    func testReadProductNameReturnsIoKitNameForNonReceiver() throws {
+        let mock = MockHIDDevice()
+        mock.productName = "MX Master 3S"
+        let session = HIDPPSession(device: mock)
+        XCTAssertEqual(try session.readProductName(deviceIndex: 1), "MX Master 3S")
+        XCTAssertTrue(mock.writeLog.isEmpty)
+    }
+
+    func testReadProductNameQueriesHIDPPForReceiver() throws {
+        let mock = MockHIDDevice()
+        mock.productName = "USB Receiver"
+        var writes = 0
+        mock.onWrite = { _ in
+            writes += 1
+            switch writes {
+            case 1: return [0x10, 0x01, 0x00, 0x01, 0x08]
+            case 2: return [0x11, 0x01, 0x08, 0x00, 0x05]
+            default: return [0x11, 0x01, 0x08, 0x10] + Array("MX 2S".utf8)
+            }
+        }
+        let session = HIDPPSession(device: mock)
+        XCTAssertEqual(try session.readProductName(deviceIndex: 1), "MX 2S")
+    }
+
+    func testReadProductNameFallsBackToIoKitNameWhenFeatureMissing() throws {
+        let mock = MockHIDDevice()
+        mock.productName = "USB Receiver"
+        mock.queuedReads = [[0x10, 0x01, 0x00, 0x01, 0x00]]
+        let session = HIDPPSession(device: mock)
+        XCTAssertEqual(try session.readProductName(deviceIndex: 1), "USB Receiver")
+    }
 }

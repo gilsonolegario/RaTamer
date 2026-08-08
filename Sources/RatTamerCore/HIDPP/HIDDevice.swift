@@ -2,6 +2,7 @@ import Foundation
 
 public protocol HIDDevice: AnyObject {
     func write(_ bytes: [UInt8]) throws
+    var productName: String? { get }
     func read(timeout: TimeInterval) throws -> [UInt8]?
     /// Reads a report from the single-slot mailbox without consulting the
     /// in-flight request gate. Used by `HIDPPSession.request` so a pending
@@ -18,6 +19,8 @@ public protocol HIDDevice: AnyObject {
 }
 
 public extension HIDDevice {
+    var productName: String? { nil }
+
     func readForRequest(timeout: TimeInterval) throws -> [UInt8]? {
         try read(timeout: timeout)
     }

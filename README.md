@@ -2,7 +2,7 @@
 
 # RatTamer
 
-A native macOS menu bar app that replaces Logitech Options+ for the MX Master 2S. It captures the mouse buttons over HID++ 2.0 and runs your own shortcut, system action or click for each one — no Logitech software required, native behavior restored on quit.
+A native macOS menu bar app that replaces Logitech Options+ for the MX Master 3 and MX Master 2S — tested on those models and designed to adapt to other HID++ Logitech devices (MX Master 3S, MX Anywhere, MX Vertical). It captures the mouse buttons over HID++ 2.0 and runs your own shortcut, system action or click for each one — no Logitech software required, native behavior restored on quit.
 
 ![Swift](https://img.shields.io/badge/Swift-5.9-FA7343?logo=swift&logoColor=white&style=flat)
 ![macOS](https://img.shields.io/badge/macOS-14%2B-000000?logo=apple&logoColor=white&style=flat)
@@ -61,6 +61,14 @@ The bundle is only needed for "Start at login" (via `SMAppService`). See [Distri
 |---|---|
 | macOS 14+ (Sonoma) | supported |
 | macOS 15 (Sequoia) | tested on 15.7.8, Apple Silicon |
+
+| Device | Notes |
+|---|---|
+| MX Master 3 | fully tested |
+| MX Master 2S | fully tested |
+| MX Master 3S, MX Anywhere, MX Vertical | supported by feature detection, not tested on hardware |
+
+> **Note:** On macOS, some Logitech mice (e.g. MX Master 3, MX Vertical, MX Keys Mini) do not expose the HID++ interface over Bluetooth. For full support, connect via the Unifying/Bolt receiver.
 
 ## Configuration
 

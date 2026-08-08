@@ -7,6 +7,21 @@ public enum HIDPPSessionError: Error {
 public final class HIDPPSession {
     public let device: HIDDevice
     public let softwareID: UInt8
+    public var productName: String? { device.productName }
+
+    /// Receivers report their own HID name ("USB Receiver"); the real product
+    /// name comes from HID++ feature 0x0005. Returns the IOKit name unless it
+    /// is nil or a known receiver name, in which case it queries the device.
+    public func readProductName(deviceIndex: UInt8) throws -> String? {
+        let name = device.productName
+        let receiverNames: Set<String> = ["USB Receiver", "Logi Receiver", "Receiver"]
+        if let name, !receiverNames.contains(name) { return name }
+        guard let featureIndex = try getFeatureIndex(featureID: DeviceName.featureID, deviceIndex: deviceIndex),
+              featureIndex != 0 else { return name }
+        let service = DeviceName(session: self, deviceIndex: deviceIndex, featureIndex: featureIndex)
+        return try service.getName() ?? name
+    }
+
     private var isClosed = false
 
     public init(device: HIDDevice, softwareID: UInt8 = 1) {

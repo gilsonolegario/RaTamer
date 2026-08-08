@@ -2,6 +2,7 @@ import Foundation
 import IOKit.hid
 
 public final class IOHIDDeviceWrapper: HIDDevice {
+    public let productName: String?
     private let device: IOHIDDevice
     private let condition = NSCondition()
     private var mailbox: [UInt8]?
@@ -14,6 +15,7 @@ public final class IOHIDDeviceWrapper: HIDDevice {
 
     public init(device: IOHIDDevice) {
         self.device = device
+        self.productName = IOHIDDeviceGetProperty(device, kIOHIDProductKey as CFString) as? String
         self.readThread = Thread { [weak self] in
             guard let self else { return }
             self.runLoop = CFRunLoopGetCurrent()

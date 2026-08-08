@@ -79,4 +79,21 @@ final class BatteryStatusTests: XCTestCase {
     func testFeatureIDIs1000() {
         XCTAssertEqual(BatteryStatus.featureID, 0x1000)
     }
+
+    func testGetBatteryInfoUnifiedReadsStateFromByteFive() throws {
+        let mock = MockHIDDevice()
+        // 0x1004 unified: capacity [4]=80, charging status [5]=2 (almost full),
+        // discharge next [6]=20, power source [7]=1
+        mock.queuedReads = [[0x11, 0x01, 0x09, 0x00, 0x50, 0x02, 0x14, 0x01]]
+        let service = BatteryStatus(session: HIDPPSession(device: mock), deviceIndex: 1,
+                                    featureIndex: 0x09, featureID: BatteryStatus.unifiedFeatureID)
+        let info = try service.getBatteryInfo()
+        XCTAssertEqual(info.capacity, 80)
+        XCTAssertEqual(info.nextCapacity, 20)
+        XCTAssertEqual(info.state, .charging)
+    }
+
+    func testUnifiedFeatureIDIs1004() {
+        XCTAssertEqual(BatteryStatus.unifiedFeatureID, 0x1004)
+    }
 }

@@ -79,6 +79,11 @@ final class EngineController {
     var onControlsChanged: (([ControlInfo]) -> Void)?
     private(set) var isConnected = false
     private(set) var controls: [ControlInfo] = []
+    private(set) var deviceName = "HID++ device"
+    private(set) var capabilities = DeviceCapabilities(hasReprogrammableControls: false,
+                                                       hasBattery: false,
+                                                       hasDPI: false,
+                                                       hasSmartShift: false)
     var dpiService: AdjustableDPI? { _dpiService }
     var batteryStatusService: BatteryStatus? { _batteryService }
     var hiResWheelService: HiResWheel? { _hiResWheelService }
@@ -106,6 +111,7 @@ final class EngineController {
             let device = try HIDLocator.openReceiver()
             let session = HIDPPSession(device: device)
             self.session = session
+            self.deviceName = (try? session.readProductName(deviceIndex: deviceIndex)) ?? "HID++ device"
             guard let featureIndex = try session.getFeatureIndex(
                 featureID: ReprogrammableControls.featureID, deviceIndex: deviceIndex
             ) else {
@@ -121,12 +127,18 @@ final class EngineController {
             onControlsChanged?(controls)
 
             if let smartShiftIndex = try? session.getFeatureIndex(
+                featureID: SmartShiftControls.enhancedFeatureID, deviceIndex: deviceIndex
+            ) {
+                self.smartShiftService = SmartShiftControls(session: session,
+                                                            deviceIndex: deviceIndex,
+                                                            featureIndex: smartShiftIndex,
+                                                            featureID: SmartShiftControls.enhancedFeatureID)
+            } else if let smartShiftIndex = try? session.getFeatureIndex(
                 featureID: SmartShiftControls.featureID, deviceIndex: deviceIndex
             ) {
-                let service = SmartShiftControls(session: session,
-                                                 deviceIndex: deviceIndex,
-                                                 featureIndex: smartShiftIndex)
-                self.smartShiftService = service
+                self.smartShiftService = SmartShiftControls(session: session,
+                                                            deviceIndex: deviceIndex,
+                                                            featureIndex: smartShiftIndex)
             }
             if let dpiIndex = try? session.getFeatureIndex(
                 featureID: AdjustableDPI.featureID, deviceIndex: deviceIndex
@@ -141,6 +153,13 @@ final class EngineController {
                 self._batteryService = BatteryStatus(session: session,
                                                      deviceIndex: deviceIndex,
                                                      featureIndex: batteryIndex)
+            } else if let batteryIndex = try? session.getFeatureIndex(
+                featureID: BatteryStatus.unifiedFeatureID, deviceIndex: deviceIndex
+            ) {
+                self._batteryService = BatteryStatus(session: session,
+                                                     deviceIndex: deviceIndex,
+                                                     featureIndex: batteryIndex,
+                                                     featureID: BatteryStatus.unifiedFeatureID)
             }
             if let wheelIndex = try? session.getFeatureIndex(
                 featureID: HiResWheel.featureID, deviceIndex: deviceIndex
@@ -149,6 +168,12 @@ final class EngineController {
                                                      deviceIndex: deviceIndex,
                                                      featureIndex: wheelIndex)
             }
+
+            let hasSmartShift = _hiResWheelService.map { ((try? $0.getInfo())?.hasSwitch ?? false) } ?? false
+            self.capabilities = DeviceCapabilities(hasReprogrammableControls: true,
+                                                   hasBattery: _batteryService != nil,
+                                                   hasDPI: _dpiService != nil,
+                                                   hasSmartShift: hasSmartShift)
 
             let monitor = DivertedButtonMonitor(deviceIndex: deviceIndex, featureIndex: featureIndex)
             monitor.onControlPressed = { [weak self] cid in
@@ -331,7 +356,8 @@ final class EngineController {
             guard let self, !self.stopped else { return }
             let config = self.currentConfig()
             let current = config.dpiValue ?? (try? service.getSensorDpi(sensor: 0))?.dpi ?? 0
-            let presets = config.dpiCycleValues ?? DPICycle.defaultPresets
+            let sensorList = (try? service.getSensorDpiList(sensor: 0)) ?? []
+            let presets = config.dpiCycleValues ?? DPICycle.recommendedPresets(from: sensorList)
             guard let next = DPICycle.next(current: current, presets: presets) else { return }
             var newConfig = config
             newConfig.dpiValue = next
