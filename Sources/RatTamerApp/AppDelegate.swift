@@ -4,6 +4,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var menuBar: MenuBarController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        applyActivationPolicy()
         Notifier.requestAuthorization()
         AppModel.shared.startEngine()
         menuBar = MenuBarController()
@@ -32,5 +33,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard !Permissions.isAccessibilityTrusted() else { return }
             Permissions.requestAccessibility()
         }
+    }
+
+    private func applyActivationPolicy() {
+        let config = AppModel.shared.configStore.load()
+        NSApp.setActivationPolicy(config.menuBarOnly == true ? .accessory : .regular)
     }
 }
