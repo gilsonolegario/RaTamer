@@ -82,4 +82,75 @@ final class ScrollSmootherTests: XCTestCase {
         _ = feed(s, at: 1000)
         XCTAssertLessThan(s.tick(at: Date(timeIntervalSince1970: 1000.2)), 0)
     }
+
+    func testDetentBounceReverseDeltaIsDamped() {
+        let s = make()
+        _ = feed(s, at: 1000) // +10 establishes up direction
+        // -3 -> -2.0px raw, within 40ms and < 50% of 10 -> bounce damped to
+        // -0.3, then arrival boost x2.6 -> -0.78 (not the full -2.0/-5.2)
+        let bounce = feed(s, deltaV: -3, at: 1000.01)
+        XCTAssertEqual(bounce, -0.78, accuracy: 0.01)
+    }
+
+    func testRealReversalPassesThrough() {
+        let s = make()
+        _ = feed(s, at: 1000) // +10
+        // -15 -> -10px raw, >= 50% of 10 -> not damped; boost x2.6 -> -26
+        let reversal = feed(s, deltaV: -15, at: 1000.01)
+        XCTAssertEqual(reversal, -26, accuracy: 0.01)
+    }
+
+    func testBounceAfterWindowPassesNormally() {
+        let s = make()
+        _ = feed(s, at: 1000) // +10
+        // -3 after the 40ms bounce window -> normal (no boost, dt 0.1)
+        let late = feed(s, deltaV: -3, at: 1000.1)
+        XCTAssertEqual(late, -2.0, accuracy: 0.0001)
+    }
+
+    func testBounceDoesNotFlipDirection() {
+        let s = make()
+        _ = feed(s, at: 1000) // +10
+        _ = feed(s, deltaV: -3, at: 1000.01) // bounce, damped
+        // next dominant-direction feed is unaffected
+        let next = feed(s, at: 1000.1)
+        XCTAssertEqual(next, 10, accuracy: 0.0001)
+    }
+
+    func testReversalRequiresTwoConsecutiveOppositePulses() {
+        let s = make()
+        _ = feed(s, at: 1000) // +10
+        // single opposite pulse: passes but does not flip the established direction
+        _ = feed(s, deltaV: -15, at: 1000.01)
+        // second opposite pulse confirms the reversal
+        let second = feed(s, deltaV: -15, at: 1000.02)
+        XCTAssertEqual(second, -26, accuracy: 0.01)
+        // after the flip, a small opposite (up) pulse is damped as bounce
+        let smallUp = feed(s, deltaV: 2, at: 1000.03)
+        XCTAssertEqual(smallUp, 0.52, accuracy: 0.01)
+    }
+
+    func testCustomPixelsPerNotchIsHonored() {
+        let s = ScrollSmoother(parameters: .init(multiplier: 15, momentumEnabled: false, invert: false,
+                                                 pixelsPerNotch: 20))
+        XCTAssertEqual(feed(s, at: 1000), 20, accuracy: 0.0001)
+    }
+
+    func testCustomMaxBoostIsHonored() {
+        let s = ScrollSmoother(parameters: .init(multiplier: 15, momentumEnabled: false, invert: false,
+                                                 maxBoost: 2.0))
+        _ = feed(s, at: 1000)
+        // 10ms gap -> boost = 1 + (2-1)*(1 - 0.01/0.05) = 1.8 -> 18
+        XCTAssertEqual(feed(s, at: 1000.01), 18, accuracy: 0.0001)
+    }
+
+    func testCustomMomentumDecayIsHonored() {
+        let s = ScrollSmoother(parameters: .init(multiplier: 15, momentumEnabled: true, invert: false,
+                                                 momentumDecay: 0.5))
+        _ = feed(s, at: 1000)
+        let t1 = Date(timeIntervalSince1970: 1000.2)
+        let t2 = Date(timeIntervalSince1970: 1000.2 + 1.0 / 120.0)
+        XCTAssertEqual(s.tick(at: t1), 10, accuracy: 0.0001)
+        XCTAssertEqual(s.tick(at: t2), 5, accuracy: 0.0001) // 10 * 0.5
+    }
 }
