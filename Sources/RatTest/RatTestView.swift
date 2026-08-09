@@ -33,33 +33,34 @@ struct RatTestView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(status).font(.subheadline)
-            Divider()
-            Text("Buttons").font(.headline)
-            ScrollView {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 10) {
+                Text(status).font(.subheadline)
+                Divider()
+                Text("Buttons").font(.headline)
                 VStack(spacing: 6) {
                     ForEach(controls, id: \.cid) { control in
                         row(for: control)
                     }
                 }
+                Text(footerText).font(.caption).foregroundStyle(.secondary)
+                Divider()
+                Text("Smooth Scroll").font(.headline)
+                smoothPanel
+                Divider()
+                Text("Wheel Mode").font(.headline)
+                wheelModePanel
+                Divider()
+                Text("DPI").font(.headline)
+                dpiPanel
+                Divider()
+                Text("Thumb Wheel").font(.headline)
+                thumbWheelPanel
             }
-            Text(footerText).font(.caption).foregroundStyle(.secondary)
-            Divider()
-            Text("Smooth Scroll").font(.headline)
-            smoothPanel
-            Divider()
-            Text("Wheel Mode").font(.headline)
-            wheelModePanel
-            Divider()
-            Text("DPI").font(.headline)
-            dpiPanel
-            Divider()
-            Text("Thumb Wheel").font(.headline)
-            thumbWheelPanel
+            .padding()
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding()
-        .frame(width: 660, height: 720)
+        .frame(width: 660)
         .onAppear {
             engine.onStatus = { status = $0 }
             engine.onControlsChanged = { controls = $0 }

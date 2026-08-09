@@ -332,9 +332,11 @@ git commit -m "feat(smooth): glide feed accumulates into target and returns 0"
 - Consumes: `target`/`current`/`carry`, `glideStopThreshold`, `smoothFraction` (Tasks 1-2).
 - Produces: `tick` no modo glide emite `remaining * smoothFraction` (com mínimo de 1px e compensação de erro fracionário) ou, quando `abs(remaining) <= glideStopThreshold`, emite o restante e zera o alvo.
 
-- [ ] **Step 1: Escrever os testes do tick glide**
+> **Nota de execução (update 2026-08-09):** A implementação de `tick`/`glideTick` foi antecipada e commitada na Task 2 (`f1f02ba`), porque os testes da Task 2 exercitam a emissão do tick. Esta task agora é: adicionar os 5 testes abaixo (que devem passar de primeira, pois a implementação já existe), rodar a suíte e commitar. NÃO re-implemente o tick. Se o `makeGlide` helper já existe no arquivo de testes, use-o.
 
-Adicione em `ScrollSmootherTests.swift`:
+- [ ] **Step 1: Adicionar os testes do tick glide**
+
+Adicione em `ScrollSmootherTests.swift` (o helper `makeGlide` já existe — use `makeGlide(fraction: 0.5, stop: 0.01, pixelsPerNotch: 16)` etc., seguindo a ordem de argumentos da declaração):
 
 ```swift
     func testGlideTickEmitsFractionOfRemaining() {
@@ -390,14 +392,14 @@ Adicione em `ScrollSmootherTests.swift`:
     }
 ```
 
-- [ ] **Step 2: Rodar os testes para ver falhar**
+- [ ] **Step 2: Rodar os testes para confirmar que passam**
 
 Run: `swift test --filter "testGlide(Tick|Converges|StopThreshold|MinOnePixel|ParamsIgnored)" 2>&1 | tail -8`
-Expected: FAIL — tick do glide ainda não emite.
+Expected: PASS — a implementação já está commitada; o teste cobre exatamente o código do `glideTick` revisado.
 
-- [ ] **Step 3: Implementar o tick do glide**
+- [ ] **Step 3: (skip — implementação já commitada na Task 2, `f1f02ba`)**
 
-Em `Sources/RatTamerCore/Core/ScrollSmoother.swift`, substitua o corpo de `tick` (linhas 167-180) por:
+O corpo de `tick`/`glideTick` já está em `Sources/RatTamerCore/Core/ScrollSmoother.swift`. Verifique apenas que `glideTick` corresponde ao código abaixo (se divergir, corrija):
 
 ```swift
     @discardableResult
@@ -455,8 +457,8 @@ Expected: todos verdes.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add Sources/RatTamerCore/Core/ScrollSmoother.swift Tests/RatTamerCoreTests/Core/ScrollSmootherTests.swift
-git commit -m "feat(smooth): glide tick emits ease-out with min 1px, carry and stop"
+git add Tests/RatTamerCoreTests/Core/ScrollSmootherTests.swift
+git commit -m "test(smooth): cover glide tick emission, convergence and stop"
 ```
 
 ---
@@ -751,8 +753,7 @@ Adicione ao final da `RatTestView`:
         Binding(
             get: {
                 if let syncedLevel { return syncedLevel }
-                let p = currentParams
-                return SmoothnessLevel.maxBoostAnchors.last?.level ?? 50
+                return SmoothnessLevel.defaultValue
             },
             set: { applyLevel($0) }
         )
