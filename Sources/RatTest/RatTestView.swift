@@ -9,9 +9,9 @@ struct RatTestView: View {
     @State private var controls: [ControlInfo] = []
     @State private var pressed = Set<UInt16>()
     @State private var smoothEnabled = false
-    @State private var maxBoost: Double = ScrollSmoother.defaultMaxBoost
-    @State private var momentumDecay: Double = ScrollSmoother.defaultMomentumDecay
-    @State private var momentumEnabled = false
+    @State private var maxBoost: Double = SmoothnessLevel.maxBoost(SmoothnessLevel.defaultValue)
+    @State private var momentumDecay: Double = SmoothnessLevel.momentumDecay(SmoothnessLevel.defaultValue)
+    @State private var momentumEnabled: Bool = SmoothnessLevel.momentumEnabled(SmoothnessLevel.defaultValue)
     @State private var pixelsPerNotch: Double = ScrollSmoother.defaultPixelsPerNotch
     @State private var accelerationWindow: Double = ScrollSmoother.defaultAccelerationWindow
     @State private var feedGapTimeout: Double = ScrollSmoother.defaultFeedGapTimeout
