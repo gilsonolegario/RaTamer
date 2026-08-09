@@ -11,6 +11,7 @@ struct ButtonsTabView: View {
     @State private var runShortcutControl: ControlInfo?
     @State private var runShortcutThumbSide: ThumbWheelSide?
     @State private var smartShiftSensitivity: Double = 16
+    @State private var showProAlert = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -89,6 +90,14 @@ struct ButtonsTabView: View {
                 runShortcutThumbSide = nil
             }
         }
+        .alert("RatTamer Pro", isPresented: $showProAlert) {
+            Button("Get RatTamer Pro") {
+                NSWorkspace.shared.open(ProStore.productURL)
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Gestures, SmartShift, Run Shortcut and multiple profiles are Pro features.")
+        }
     }
 
     private func currentGestureConfig(for control: ControlInfo) -> GestureConfig {
@@ -96,6 +105,24 @@ struct ButtonsTabView: View {
             return .logitechDefault()
         }
         return g
+    }
+
+    private func isPro(_ feature: ProFeature) -> Bool {
+        AppModel.shared.license.isPro(feature)
+    }
+
+    private func proGate(_ feature: ProFeature, _ action: @escaping () -> Void) {
+        guard isPro(feature) else {
+            showProAlert = true
+            return
+        }
+        action()
+    }
+
+    private var lockIcon: some View {
+        Image(systemName: "lock.fill")
+            .font(.caption2)
+            .foregroundStyle(.secondary)
     }
 
     private func row(for control: ControlInfo) -> some View {
@@ -234,7 +261,7 @@ struct ButtonsTabView: View {
         let mode = config.smartShiftMode
         return Menu {
             Button {
-                setSmartShiftMode(nil)
+                proGate(.smartShift) { setSmartShiftMode(nil) }
             } label: {
                 Label("Native (default)", systemImage: "arrow.uturn.left.circle")
                 if mode == nil {
@@ -243,7 +270,7 @@ struct ButtonsTabView: View {
             }
             Divider()
             Button {
-                setSmartShiftMode(.freespin)
+                proGate(.smartShift) { setSmartShiftMode(.freespin) }
             } label: {
                 Label("Free-spin", systemImage: "wind")
                 if mode == .freespin {
@@ -251,7 +278,7 @@ struct ButtonsTabView: View {
                 }
             }
             Button {
-                setSmartShiftMode(.ratcheted)
+                proGate(.smartShift) { setSmartShiftMode(.ratcheted) }
             } label: {
                 Label("Ratcheted", systemImage: "digitalcrown.arrow.clockwise")
                 if mode == .ratcheted {
@@ -260,7 +287,7 @@ struct ButtonsTabView: View {
             }
             if model.capabilities.hasSmartShift {
                 Button {
-                    setSmartShiftMode(.smartshift)
+                    proGate(.smartShift) { setSmartShiftMode(.smartshift) }
                 } label: {
                     Label("SmartShift (auto)", systemImage: "bolt.badge.automatic")
                     if mode == .smartshift {
@@ -361,9 +388,12 @@ struct ButtonsTabView: View {
                           extras: {
                               if control.cid == 0x00C3 {
                                   Button {
-                                      gestureControl = control
+                                      proGate(.gestures) { gestureControl = control }
                                   } label: {
-                                      Label("Gesture…", systemImage: "hand.draw")
+                                      HStack {
+                                          Label("Gesture…", systemImage: "hand.draw")
+                                          if !isPro(.gestures) { lockIcon }
+                                      }
                                   }
                               }
                           })
@@ -383,9 +413,12 @@ struct ButtonsTabView: View {
                 Label("Custom Shortcut…", systemImage: "keyboard")
             }
             Button {
-                onRunShortcut()
+                proGate(.runShortcut) { onRunShortcut() }
             } label: {
-                Label("Run Shortcut…", systemImage: "applescript")
+                HStack {
+                    Label("Run Shortcut…", systemImage: "applescript")
+                    if !isPro(.runShortcut) { lockIcon }
+                }
             }
             extras()
         } label: {
