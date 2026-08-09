@@ -48,8 +48,10 @@ Componentes novos em `Sources/RatTamerCore/Core/` (testáveis sem UI):
 - **`LicenseKeyStore`** — persiste a chave do usuário em UserDefaults (fora do
   `config.json`, que é só config de mouse).
 - **`LicenseClient`** — `URLSession` para `POST
-  https://api.gumroad.com/v2/licenses/verify` com `{product_permalink,
-  license_key}`; retorna `success` + metadados da compra.
+  https://api.gumroad.com/v2/licenses/verify` com `{product_id,
+  license_key}`; retorna `success` + metadados da compra. (A API do Gumroad
+  exige `product_id` — não `product_permalink` — para produtos criados após
+  09/01/2023.)
 - **`LicenseService`** — estado `unlicensed / validating / active /
   offline-expired / invalid`; validação no startup; **cache offline de 30 dias**
   (chave + resultado no UserDefaults); retry com backoff em falha de rede/429;
