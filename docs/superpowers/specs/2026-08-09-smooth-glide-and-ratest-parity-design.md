@@ -37,7 +37,10 @@ da roda (ratchet/free-spin).
   comportamento atual é preservado.
 - `smoothFraction: Double` — fração da distância restante aproximada a cada
   tick (120 Hz). Default `0.13` (~equivalente ao Duration 3.0 do Mos, que
-  produz `1 - sqrt(3/5.2) ≈ 0.24` por frame a 60 Hz).
+  produz `1 - sqrt(3/5.2) ≈ 0.24` por frame a 60 Hz; a 120 Hz o mesmo tempo de
+  convergência dá `1 - sqrt(1 - 0.24) ≈ 0.128`).
+- `glideStopThreshold: Double` — epsilon de parada do glide; default `0.5`
+  (consenso SmoothScroll/LinearMouse). Ignorado no modo legado.
 
 Novos parâmetros entram no `Equatable`, no init com default e no decode
 legado (o decode atual já tolera campos ausentes — verificar `ConfigStore`).
@@ -63,14 +66,24 @@ legado (o decode atual já tolera campos ausentes — verificar `ConfigStore`).
 ### `tick` — quando `smoothingEnabled == true`
 
 1. `remaining = target - current`.
-2. Se `abs(remaining) <= momentumStopThreshold` (reutilizado como epsilon de
-   parada do glide; default `0.1`): emite `remaining`, faz
-   `current = target; target = 0`, retorna `remaining`. Movimento terminou —
-   **sem** momentum longo.
-3. Senão: `step = remaining * smoothFraction`; `current += step`; retorna `step`.
+2. Se `abs(remaining) <= glideStopThreshold` (epsilon de parada do glide;
+   default **`0.5`** — consenso SmoothScroll + LinearMouse): emite `remaining`,
+   faz `current = target; target = 0`, retorna `remaining`. Movimento
+   terminou — **sem** momentum longo.
+3. Senão: `step = remaining * smoothFraction`; **mínimo de 1px** quando
+   `abs(step) < 1` (evita "derretimento" sub-pixel): `step = copysign(1.0, remaining)`
+   se `abs(remaining) >= 1`; acumula o erro fracionário
+   (`carry += step - step.rounded()`; soma `carry` quando `abs(carry) >= 1` —
+   compensação da referência SmoothScroll). `current += step`; retorna `step`.
 4. `applyInvert` aplicado ao valor emitido, como no legado.
 5. Momentum/`momentumDecay`/`momentumStopThreshold` (velocidade) **não** são
-   usados no modo glide.
+   usados no modo glide — o epsilon do glide é um parâmetro dedicado.
+
+### Parâmetro novo adicional: `glideStopThreshold`
+
+- `glideStopThreshold: Double` — default `0.5`. Não afeta o modo legado (o
+  legado continua usando `momentumStopThreshold`). Reconciliado com o reuse
+  report (consenso SmoothScroll 0.5 / LinearMouse 0.5 / Mos deadZone 1.0).
 
 ### `feed`/`tick` — quando `smoothingEnabled == false`
 
@@ -81,11 +94,15 @@ Sem nenhuma alteração de comportamento (caminhos legados intactos).
 - `feed` no modo glide retorna 0 e acumula em `target`.
 - `tick` emite `smoothFraction` do restante por tick.
 - glide converge sem overshoot e para (alvo atingido, `target` zerado).
+- `glideStopThreshold` encerra o glide emitindo o restante (sem perder distância).
+- mínimo de 1px no fim do glide (`copysign(1.0, remaining)`).
+- compensação de erro fracionário (`carry`) não perde distância acumulada.
 - reversal real reseta o glide (`current`/`target` zerados).
 - bounce não acumula no `target`.
 - boost por taxa de chegada se aplica ao valor acumulado.
 - `pixelsPerNotch` customizado é honrado no alvo.
-- modo legado: suíte existente continua verde (backward compat).
+- `smoothingEnabled == false`: `glideStopThreshold`/`smoothFraction` não têm
+  efeito; suíte existente continua verde (backward compat).
 
 ## Parte B — Paridade do RatTest
 
@@ -94,18 +111,30 @@ Sem nenhuma alteração de comportamento (caminhos legados intactos).
 - Slider de nível `0...100` + botões **Discreta (0)** / **Média (50)** /
   **Fluida (100)** que aplicam `SmoothnessLevel.parameters(level:multiplier:invert:)`
   e sincronizam os sliders crus existentes.
-- Botão/preset **Mos-like**: `smoothingEnabled = true`,
-  `pixelsPerNotch = 60`, `maxBoost = 2.2`, `smoothFraction = 0.13`
-  (configuração final do usuário no Mos: Step 60 / Speed 2.2 / Duration 3.0).
+- Preset **Glide (sã)** — conjunto validado pelo reuse report
+  (`docs/superpowers/specs/2026-08-09-smooth-glide-and-ratest-parity-v1.reuse.md`):
+  `smoothingEnabled = true`, `pixelsPerNotch = 120`, `maxBoost = 1.5`,
+  `smoothFraction = 0.13`, `glideStopThreshold = 0.5`,
+  `accelerationWindow = 0.05`. Comunidade 4K (Reddit/LinearMouse/Mos)
+  converge em 120–170 px/notch; boost modesto evita o runaway do free-spin.
+- Preset **Mos-like** — réplica exata da config real do usuário no Mos
+  (Step 60 / Speed 2.2 / Duration 3.0). **Correção do reuse report:** o Mos
+  multiplica **todo** evento por `speed` (`buffer += y × speed`), logo a
+  distância real por notch é `step × speed = 132 px`. Preset:
+  `smoothingEnabled = true`, `pixelsPerNotch = 132`, `maxBoost = 1.0`
+  (sem boost — Mos não tem boost por taxa), `smoothFraction = 0.13`,
+  `glideStopThreshold = 0.5`, `accelerationWindow = 0.05`.
 - O slider de nível e os sliders crus devem se manter sincronizados
   (mover nível atualiza os crus; mover um cru desceleciona o nível).
 
 ### 2. Controles de smoothing
 
 - Toggle **Smoothing (glide)** ligado a `smoothingEnabled`.
-- Slider **Smooth fraction** (`0.02...0.50`, step `0.01`) ligado a
+- Slider **Smooth fraction** (`0.02...0.15`, step `0.01` — faixa sã do reuse
+  report; acima de ~0.2 o glide vira "quase instantâneo") ligado a
   `smoothFraction`.
-- Ambos wired em `currentParams` (envio live via `setSmoothParameters`).
+- Slider **Glide stop** (`0.0...2.0`, step `0.1`) ligado a `glideStopThreshold`.
+- Todos wired em `currentParams` (envio live via `setSmoothParameters`).
 
 ### 3. Catálogo completo de ações
 
