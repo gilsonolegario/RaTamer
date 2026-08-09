@@ -354,4 +354,14 @@ final class ConfigStoreTests: XCTestCase {
         XCTAssertEqual(config.smoothScrollEnabled, true)
         XCTAssertNil(config.smoothScrollLevel)
     }
+
+    func testLegacySmoothScrollMomentumFalseConfigDecodes() throws {
+        let json = """
+        {"version":1,"smoothScrollEnabled":true,"smoothScrollMomentum":false}
+        """
+        let data = Data(json.utf8)
+        let config = try JSONDecoder().decode(Config.self, from: data)
+        XCTAssertEqual(config.smoothScrollEnabled, true)
+        XCTAssertNil(config.smoothScrollLevel)
+    }
 }
