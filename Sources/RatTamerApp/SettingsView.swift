@@ -13,6 +13,7 @@ struct SettingsView: View {
             List(selection: $selection) {
                 Label("General", systemImage: "gearshape").tag("General")
                 Label("Buttons", systemImage: "computermouse").tag("Buttons")
+                Label("Pro", systemImage: "sparkles").tag("Pro")
                 Label("About", systemImage: "info.circle").tag("About")
             }
             .listStyle(.sidebar)
@@ -21,6 +22,7 @@ struct SettingsView: View {
             switch selection {
             case "General": GeneralTabView()
             case "About": AboutTabView()
+            case "Pro": ProTabView()
             default: ButtonsTabView()
             }
         }
