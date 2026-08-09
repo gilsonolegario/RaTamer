@@ -400,9 +400,10 @@ final class EngineController {
         smoothCoordinator = nil
         guard enabled else { return }
         let info = try? service.getInfo()
-        let params = ScrollSmoother.Parameters(multiplier: info?.multiplier ?? 8,
-                                               momentumEnabled: config.smoothScrollMomentum == true,
-                                               invert: config.invertScrollDirection ?? false)
+        let level = config.smoothScrollLevel ?? SmoothnessLevel.defaultValue
+        let params = SmoothnessLevel.parameters(level: level,
+                                                multiplier: info?.multiplier ?? 8,
+                                                invert: config.invertScrollDirection ?? false)
         let coordinator = ScrollSmootherCoordinator(smoother: ScrollSmoother(parameters: params)) { [weak self] pixels in
             self?.postSmoothScroll(pixels)
         }
