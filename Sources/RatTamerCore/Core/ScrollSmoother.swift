@@ -116,7 +116,7 @@ public final class ScrollSmoother {
     public func feed(_ movement: WheelMovement, at now: Date) -> Double {
         let notches = Double(movement.deltaV) / Double(max(1, parameters.multiplier))
         let raw = notches * parameters.pixelsPerNotch
-        let (stabilizedPixels, isBounce) = stabilized(raw, at: now)
+        let (stabilizedPixels, isBounce, reversed, accepted) = stabilized(raw, at: now)
         var pixels = stabilizedPixels
         if let last = lastFeedAt {
             let dt = now.timeIntervalSince(last)
@@ -127,6 +127,17 @@ public final class ScrollSmoother {
             }
         }
         lastFeedAt = now
+        if parameters.smoothingEnabled {
+            if reversed {
+                current = 0
+                target = 0
+                carry = 0
+            }
+            if accepted && !isBounce {
+                target += pixels
+            }
+            return 0
+        }
         if !isBounce {
             velocity = pixels
         }
@@ -139,9 +150,11 @@ public final class ScrollSmoother {
     /// after `reversalConfirmation` consecutive opposite pulses. Returns the
     /// stabilized pixels and whether this feed was detected as a bounce (in
     /// which case it must not reseed momentum).
-    private func stabilized(_ raw: Double, at now: Date) -> (pixels: Double, isBounce: Bool) {
+    private func stabilized(_ raw: Double, at now: Date)
+        -> (pixels: Double, isBounce: Bool, reversed: Bool, accepted: Bool) {
         var pixels = raw
         let sign = raw > 0 ? 1 : (raw < 0 ? -1 : 0)
+        let directionBefore = direction
         guard direction != 0, sign != 0 else {
             if sign != 0, abs(pixels) >= parameters.directionThreshold {
                 direction = sign
@@ -149,7 +162,7 @@ public final class ScrollSmoother {
                 lastAcceptedMagnitude = abs(pixels)
             }
             oppositeCount = 0
-            return (pixels, false)
+            return (pixels, false, false, directionBefore == 0 || sign == directionBefore)
         }
         if sign == direction {
             oppositeCount = 0
@@ -158,7 +171,7 @@ public final class ScrollSmoother {
                 lastAcceptedAt = now
                 lastAcceptedMagnitude = abs(pixels)
             }
-            return (pixels, false)
+            return (pixels, false, false, true)
         }
         if let last = lastAcceptedAt, now.timeIntervalSince(last) < parameters.bounceWindow {
             if oppositeCount + 1 >= parameters.reversalConfirmation {
@@ -166,26 +179,29 @@ public final class ScrollSmoother {
                 direction = sign
                 lastAcceptedAt = now
                 lastAcceptedMagnitude = abs(pixels)
-                return (pixels, false)
+                return (pixels, false, true, true)
             }
             oppositeCount += 1
             if abs(pixels) < lastAcceptedMagnitude * parameters.bounceRatio {
                 pixels *= parameters.bounceDamping
-                return (pixels, true)
+                return (pixels, true, false, false)
             }
-            return (pixels, false)
+            return (pixels, false, false, false)
         }
         oppositeCount = 0
         direction = sign
         lastAcceptedAt = now
         lastAcceptedMagnitude = abs(pixels)
-        return (pixels, false)
+        return (pixels, false, true, true)
     }
 
     /// Returns decaying momentum pixels, or 0 when momentum is off, the wheel
     /// is still being fed, or velocity has drained below the stop threshold.
     @discardableResult
     public func tick(at now: Date) -> Double {
+        if parameters.smoothingEnabled {
+            return glideTick()
+        }
         guard parameters.momentumEnabled else { return 0 }
         if let last = lastFeedAt, now.timeIntervalSince(last) < parameters.feedGapTimeout {
             return 0
@@ -197,6 +213,29 @@ public final class ScrollSmoother {
         let out = velocity
         velocity *= parameters.momentumDecay
         return applyInvert(out)
+    }
+
+    private func glideTick() -> Double {
+        var remaining = target - current
+        if abs(remaining) <= parameters.glideStopThreshold {
+            target = 0
+            current = 0
+            carry = 0
+            return applyInvert(remaining)
+        }
+        var step = remaining * parameters.smoothFraction
+        if abs(step) < 1 && abs(remaining) >= 1 {
+            step = remaining > 0 ? 1 : -1
+        }
+        carry += step - step.rounded()
+        step = step.rounded()
+        if abs(carry) >= 1 {
+            let whole = carry > 0 ? 1.0 : -1.0
+            step += whole
+            carry -= whole
+        }
+        current += remaining * parameters.smoothFraction
+        return applyInvert(step)
     }
 
     public func reset() {

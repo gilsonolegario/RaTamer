@@ -160,4 +160,71 @@ final class ScrollSmootherTests: XCTestCase {
         XCTAssertEqual(p.smoothFraction, ScrollSmoother.defaultSmoothFraction)
         XCTAssertEqual(p.glideStopThreshold, ScrollSmoother.defaultGlideStopThreshold)
     }
+
+    private func makeGlide(multiplier: UInt8 = 15,
+                           fraction: Double = 0.13,
+                           stop: Double = 0.5,
+                           pixelsPerNotch: Double = 10) -> ScrollSmoother {
+        ScrollSmoother(parameters: .init(multiplier: multiplier,
+                                         momentumEnabled: false,
+                                         invert: false,
+                                         pixelsPerNotch: pixelsPerNotch,
+                                         smoothingEnabled: true,
+                                         smoothFraction: fraction,
+                                         glideStopThreshold: stop))
+    }
+
+    func testGlideFeedReturnsZeroAndAccumulates() {
+        let s = makeGlide()
+        XCTAssertEqual(feed(s, at: 1000), 0)
+        XCTAssertGreaterThan(s.tick(at: Date(timeIntervalSince1970: 1000.02)), 0)
+    }
+
+    func testGlideSameDirectionAccumulates() {
+        let s = makeGlide(fraction: 0.5, stop: 0.01)
+        _ = feed(s, at: 1000)
+        _ = feed(s, at: 1000.01)  // fast arrival → boost
+        var total = 0.0
+        var t = Date(timeIntervalSince1970: 1000.02)
+        while true {
+            let px = s.tick(at: t)
+            if px == 0 { break }
+            total += px
+            t = t.addingTimeInterval(1.0 / 120)
+        }
+        XCTAssertGreaterThan(total, 20)  // 10 + boosted > 10
+    }
+
+    func testGlideBounceDoesNotAccumulate() {
+        let s = makeGlide(fraction: 0.5, stop: 0.01)
+        _ = feed(s, at: 1000)            // +10 target
+        _ = feed(s, deltaV: -3, at: 1000.01)  // bounce → not accumulated
+        var total = 0.0
+        var t = Date(timeIntervalSince1970: 1000.02)
+        while true {
+            let px = s.tick(at: t)
+            if px == 0 { break }
+            total += px
+            t = t.addingTimeInterval(1.0 / 120)
+        }
+        XCTAssertEqual(total, 10, accuracy: 1.0)
+    }
+
+    func testGlideReversalResetsAndAccumulates() {
+        let s = makeGlide(fraction: 0.5, stop: 0.01)
+        _ = feed(s, deltaV: 15, at: 1000)      // +10
+        _ = feed(s, deltaV: 15, at: 1000.01)   // +boosted
+        _ = s.tick(at: Date(timeIntervalSince1970: 1000.02))  // emit some +
+        _ = feed(s, deltaV: -15, at: 1000.03)  // opposite, needs confirmation
+        _ = feed(s, deltaV: -15, at: 1000.04)  // accepted reversal → reset + target neg
+        var total = 0.0
+        var t = Date(timeIntervalSince1970: 1000.05)
+        while true {
+            let px = s.tick(at: t)
+            if px == 0 { break }
+            total += px
+            t = t.addingTimeInterval(1.0 / 120)
+        }
+        XCTAssertLessThan(total, -10)
+    }
 }
