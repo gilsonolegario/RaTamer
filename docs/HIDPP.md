@@ -71,6 +71,8 @@ Signed big-endian Int16 deltas; positive dy = down (HID convention).
 
 `request` accepts a report only when `resp[1] == device`, `resp[2] == feature`, `resp[3] >> 4 == functionID` and the softwareID nibble matches (own or 0).
 
+Requests are serialized through an exclusive ownership gate (`beginRequest`/`endRequest`): the monitor loop blocks while a request is in flight, so concurrent requests can never steal each other's replies. Reports queue in a FIFO mailbox (capacity 16); beyond that, the oldest entry is dropped.
+
 ## Gotchas found on hardware
 
 - `IOHIDManager` **never enumerates** the Unifying receiver on macOS 15/arm64. `HIDLocator` walks the kernel registry with `IOServiceGetMatchingServices` + `IOHIDDeviceCreate` instead — and that works as a regular user, with no TCC permission.
