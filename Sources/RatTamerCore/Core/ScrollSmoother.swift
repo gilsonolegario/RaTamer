@@ -234,7 +234,7 @@ public final class ScrollSmoother {
             step += whole
             carry -= whole
         }
-        current += remaining * parameters.smoothFraction
+        current += step
         return applyInvert(step)
     }
 

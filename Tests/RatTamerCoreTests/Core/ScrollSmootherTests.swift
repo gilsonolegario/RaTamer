@@ -249,7 +249,7 @@ final class ScrollSmootherTests: XCTestCase {
             total += px
             t = t.addingTimeInterval(1.0 / 120)
         }
-        XCTAssertEqual(total, 16, accuracy: 1.0)
+        XCTAssertEqual(total, 16, accuracy: 0.001)
         XCTAssertEqual(s.tick(at: t.addingTimeInterval(1.0 / 120)), 0)
     }
 
