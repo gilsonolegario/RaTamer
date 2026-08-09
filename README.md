@@ -6,7 +6,7 @@ A native macOS menu bar app that replaces Logitech Options+ for the MX Master 3 
 
 ![Swift](https://img.shields.io/badge/Swift-5.9-FA7343?logo=swift&logoColor=white&style=flat)
 ![macOS](https://img.shields.io/badge/macOS-14%2B-000000?logo=apple&logoColor=white&style=flat)
-![Version](https://img.shields.io/badge/version-0.9.0-FF9F1C?style=flat)
+![Version](https://img.shields.io/badge/version-1.0.0-FF9F1C?style=flat)
 
 [![Settings — About tab](screenshots/settings-about.png)](screenshots/settings-about.png)
 
@@ -76,6 +76,20 @@ In the **Buttons** tab every divertable button gets an action: Disabled (native)
 
 The configuration is stored in `~/Library/Application Support/RatTamer/config.json` and applied on connect.
 
+## Pricing
+
+RatTamer is free and always will be. The free tier covers button remapping, the
+thumb wheel, DPI cycling and left/right swap.
+
+**RatTamer Pro** adds gestures, SmartShift, Run Shortcut and (coming soon)
+multiple profiles — pay what you want (min. US$ 3), one-time, lifetime.
+
+1. Buy at [rattamer.gumroad.com/l/rattamer-pro](https://rattamer.gumroad.com/l/rattamer-pro).
+2. Open RatTamer → Settings → **Pro**, paste the license key from your receipt
+   and click Activate.
+3. Pro features unlock immediately in the Buttons tab. Re-enter the same key on
+   any other Mac where you run RatTamer.
+
 ## Distribution
 
 The app is **not notarized** — notarization requires a paid Apple Developer account — so macOS may block a downloaded copy. Two free paths work around that:
@@ -95,6 +109,10 @@ The app is **not notarized** — notarization requires a paid Apple Developer ac
 - **The HID++ protocol, byte by byte** — [docs/HIDPP.md](docs/HIDPP.md)
 
 ## History
+
+**1.0.0** — Freemium: gestures, SmartShift, Run Shortcut and profiles moved to
+RatTamer Pro (Gumroad license key, pay-what-you-want). Free tier keeps all
+remap features. License state shown in Settings → Pro.
 
 **0.9.0** — About tab with app icon (160pt) and version; menu bar popover with status, battery, pointer resolution and a remapping toggle; option to hide the Dock icon (menu bar only); DPI cycling (1000/1600/2000/4000); button remapping with left/right swap; thumb wheel actions; SmartShift wheel mode control; gestures; screenshots.
 
