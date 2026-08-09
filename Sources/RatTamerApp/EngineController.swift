@@ -18,7 +18,8 @@ final class EngineController {
     private var monitor: DivertedButtonMonitor?
     private var loopThread: Thread?
     private let deviceIndex: UInt8 = 1
-    private let actionEngine = ActionEngine(poster: CGEventPoster())
+    private let entitlement: (ProFeature) -> Bool
+    private let actionEngine: ActionEngine
     private let gestureDetector: GestureDetector
     private var gestureCID: UInt16?
     private var scrollWheelTap: ScrollWheelTap?
@@ -88,9 +89,12 @@ final class EngineController {
     var batteryStatusService: BatteryStatus? { _batteryService }
     var hiResWheelService: HiResWheel? { _hiResWheelService }
 
-    init(configStore: ConfigStore) {
+    init(configStore: ConfigStore,
+         entitlement: @escaping (ProFeature) -> Bool = { _ in true }) {
         self.configStore = configStore
-        self.cachedConfig = configStore.load()
+        self.entitlement = entitlement
+        self.actionEngine = ActionEngine(poster: CGEventPoster(), proGate: entitlement)
+        self.cachedConfig = configStore.load().filteringProFeatures(entitled: entitlement)
         self.gestureDetector = GestureDetector(actionEngine: actionEngine)
         let tap = ScrollWheelTap(
             shouldIntercept: { [weak self] direction in
@@ -305,7 +309,7 @@ final class EngineController {
     }
 
     private func refreshConfig() {
-        let config = configStore.load()
+        let config = configStore.load().filteringProFeatures(entitled: entitlement)
         configLock.lock()
         cachedConfig = config
         configLock.unlock()

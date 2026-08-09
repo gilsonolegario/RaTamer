@@ -4,28 +4,39 @@ import RatTamerCore
 final class AppModel: ObservableObject {
     static let shared = AppModel()
     let configStore = ConfigStore(fileURL: ConfigStore.defaultFileURL())
+    let license = LicenseService.shared
     private(set) var engine: EngineController?
     @Published var statusText = "Starting…"
     @Published var isConnected = false
     @Published var isReconnecting = false
     @Published var controls: [ControlInfo] = []
     @Published var pressed = Set<UInt16>()
+    @Published var licenseState: LicenseService.State = LicenseService.shared.state
+    @Published var deviceName = "HID++ device"
+    @Published var capabilities = DeviceCapabilities(hasReprogrammableControls: false,
+                                                     hasBattery: false,
+                                                     hasDPI: false,
+                                                     hasSmartShift: false)
     @Published var remappingEnabled = true {
         didSet {
             guard remappingEnabled != oldValue else { return }
             engine?.enabled = remappingEnabled
         }
     }
-    @Published var deviceName = "HID++ device"
-    @Published var capabilities = DeviceCapabilities(hasReprogrammableControls: false,
-                                                     hasBattery: false,
-                                                     hasDPI: false,
-                                                     hasSmartShift: false)
 
-    private init() {}
+    private init() {
+        license.onStateChange = { [weak self] state in
+            DispatchQueue.main.async {
+                self?.licenseState = state
+                self?.engine?.applyConfig()
+            }
+        }
+    }
 
     func startEngine() {
-        let engine = EngineController(configStore: configStore)
+        let engine = EngineController(configStore: configStore) { [weak self] feature in
+            self?.license.isPro(feature) ?? false
+        }
         engine.onStatus = { [weak self] text in
             DispatchQueue.main.async { self?.statusText = text }
         }
@@ -57,6 +68,7 @@ final class AppModel: ObservableObject {
         }
         _ = engine.start()
         self.engine = engine
+        Task { await license.validate() }
     }
 
     func stopEngine() {
