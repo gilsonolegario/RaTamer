@@ -25,6 +25,7 @@ struct RatTestView: View {
     @State private var smoothFraction: Double = ScrollSmoother.defaultSmoothFraction
     @State private var glideStopThreshold: Double = ScrollSmoother.defaultGlideStopThreshold
     @State private var syncedLevel: Double?
+    @State private var thumbWheelLog: [String] = []
 
     init(engine: RatTestEngine) {
         self.engine = engine
@@ -47,6 +48,15 @@ struct RatTestView: View {
             Divider()
             Text("Smooth Scroll").font(.headline)
             smoothPanel
+            Divider()
+            Text("Wheel Mode").font(.headline)
+            wheelModePanel
+            Divider()
+            Text("DPI").font(.headline)
+            dpiPanel
+            Divider()
+            Text("Thumb Wheel").font(.headline)
+            thumbWheelPanel
         }
         .padding()
         .frame(width: 660, height: 720)
@@ -55,6 +65,13 @@ struct RatTestView: View {
             engine.onControlsChanged = { controls = $0 }
             engine.onPress = { cid in DispatchQueue.main.async { pressed.insert(cid) } }
             engine.onRelease = { cid in DispatchQueue.main.async { pressed.remove(cid) } }
+            engine.onThumbWheel = { direction in
+                DispatchQueue.main.async {
+                    let label = direction == .left ? "left" : "right"
+                    thumbWheelLog.append(label)
+                    if thumbWheelLog.count > 20 { thumbWheelLog.removeFirst(thumbWheelLog.count - 20) }
+                }
+            }
             _ = engine.start()
         }
     }
@@ -160,6 +177,46 @@ struct RatTestView: View {
                     value: $reversalConfirmation, in: 1...5)
                 .onChange(of: reversalConfirmation) { _, _ in applySmoothParams() }
             sliderRow("Direction threshold", value: $directionThreshold, range: 0.0...5.0, step: 0.25)
+        }
+    }
+
+    private var wheelModePanel: some View {
+        Group {
+            if engine.hasSmartShift {
+                HStack {
+                    Text("Mode: \(engine.wheelModeDescription)")
+                        .frame(width: 200, alignment: .leading)
+                    Button("Ratchet") { engine.setWheelMode(ratcheted: true) }
+                    Button("Free-spin") { engine.setWheelMode(ratcheted: false) }
+                    Spacer()
+                }
+            } else {
+                Text("Device has no SmartShift.").font(.caption).foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private var dpiPanel: some View {
+        HStack {
+            Text("Current: \(engine.currentDPI.map(String.init) ?? "—")")
+                .frame(width: 200, alignment: .leading)
+            Text("Cycle: \(engine.dpiCycleValues.map(String.init).joined(separator: " → "))")
+                .font(.caption).foregroundStyle(.secondary)
+                .lineLimit(1).truncationMode(.tail)
+            Button("Cycle DPI") { engine.cycleDPI() }
+                .disabled(engine.dpiCycleValues.isEmpty)
+            Spacer()
+        }
+    }
+
+    private var thumbWheelPanel: some View {
+        HStack {
+            Text(thumbWheelLog.isEmpty
+                 ? "Spin the thumb wheel."
+                 : "Notches: " + thumbWheelLog.joined(separator: ", "))
+                .font(.caption)
+                .foregroundStyle(thumbWheelLog.isEmpty ? .secondary : .primary)
+            Spacer()
         }
     }
 
