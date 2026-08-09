@@ -62,9 +62,13 @@ the old right-click → Open bypass is **gone**, so use this flow instead:
 
 ## Smooth scrolling
 
-Trackpad-style vertical smooth scrolling for Logitech wheels is a Pro feature. It reads hi-res wheel deltas over HID++ and re-emits them as continuous pixel scroll events, with optional momentum.
+Trackpad-style vertical smooth scrolling for Logitech wheels is a Pro feature. It reads hi-res wheel deltas over HID++ and re-emits them as continuous pixel scroll events. A Smoothness slider (0–100) controls the feel — amplification and inertia grow with the level. Presets: Discreta (0), Média (50, default) and Fluida (100).
 
 > Do not run RatTamer together with Logitech Options+, BetterMouse or similar mouse-config tools: they reprogram the same HID++ features and will fight over wheel mode.
+
+### Tuning
+
+Run `swift run RatTest` for a live tuning panel with all smooth-scroll parameters (maxBoost, momentumDecay, pixelsPerNotch). Twist the wheel in ratcheted mode and the response updates instantly.
 
 ### Screenshots
 
