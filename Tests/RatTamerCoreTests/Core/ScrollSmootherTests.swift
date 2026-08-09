@@ -227,4 +227,56 @@ final class ScrollSmootherTests: XCTestCase {
         }
         XCTAssertLessThan(total, -10)
     }
+
+    func testGlideTickEmitsFractionOfRemaining() {
+        let s = makeGlide(fraction: 0.5, stop: 0.01, pixelsPerNotch: 16)
+        _ = feed(s, at: 1000)
+        let t0 = Date(timeIntervalSince1970: 1000.02)
+        XCTAssertEqual(s.tick(at: t0), 8, accuracy: 0.0001)
+        XCTAssertEqual(s.tick(at: t0.addingTimeInterval(1.0 / 120)), 4, accuracy: 0.0001)
+        XCTAssertEqual(s.tick(at: t0.addingTimeInterval(2.0 / 120)), 2, accuracy: 0.0001)
+        XCTAssertEqual(s.tick(at: t0.addingTimeInterval(3.0 / 120)), 1, accuracy: 0.0001)
+    }
+
+    func testGlideConvergesAndStops() {
+        let s = makeGlide(fraction: 0.5, stop: 0.01, pixelsPerNotch: 16)
+        _ = feed(s, at: 1000)
+        var total = 0.0
+        var t = Date(timeIntervalSince1970: 1000.02)
+        while true {
+            let px = s.tick(at: t)
+            if px == 0 { break }
+            total += px
+            t = t.addingTimeInterval(1.0 / 120)
+        }
+        XCTAssertEqual(total, 16, accuracy: 1.0)
+        XCTAssertEqual(s.tick(at: t.addingTimeInterval(1.0 / 120)), 0)
+    }
+
+    func testGlideStopThresholdEmitsRemainder() {
+        let s = makeGlide(fraction: 0.5, stop: 2.0, pixelsPerNotch: 16)
+        _ = feed(s, at: 1000)
+        let t0 = Date(timeIntervalSince1970: 1000.02)
+        XCTAssertEqual(s.tick(at: t0), 8, accuracy: 0.0001)
+        XCTAssertEqual(s.tick(at: t0.addingTimeInterval(1.0 / 120)), 4, accuracy: 0.0001)
+        XCTAssertEqual(s.tick(at: t0.addingTimeInterval(2.0 / 120)), 2, accuracy: 0.0001)
+        XCTAssertEqual(s.tick(at: t0.addingTimeInterval(3.0 / 120)), 2, accuracy: 0.0001)
+        XCTAssertEqual(s.tick(at: t0.addingTimeInterval(4.0 / 120)), 0)
+    }
+
+    func testGlideMinOnePixel() {
+        let s = makeGlide(fraction: 0.13, stop: 0.01, pixelsPerNotch: 1)
+        _ = feed(s, at: 1000)
+        XCTAssertEqual(s.tick(at: Date(timeIntervalSince1970: 1000.02)), 1)
+    }
+
+    func testGlideParamsIgnoredWhenSmoothingDisabled() {
+        let s = ScrollSmoother(parameters: .init(multiplier: 15,
+                                                 momentumEnabled: false,
+                                                 invert: false,
+                                                 smoothFraction: 0.99,
+                                                 glideStopThreshold: 0.99))
+        _ = feed(s, at: 1000)
+        XCTAssertEqual(s.tick(at: Date(timeIntervalSince1970: 1000.02)), 0)
+    }
 }
