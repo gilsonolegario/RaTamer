@@ -169,7 +169,7 @@ public struct Config: Codable, Equatable {
     public var dpiCycleValues: [UInt16]?
     public var invertScrollDirection: Bool?
     public var smoothScrollEnabled: Bool?
-    public var smoothScrollMomentum: Bool?
+    public var smoothScrollLevel: Double?
     public var menuBarOnly: Bool?
     public var thumbWheelLeft: ButtonAction?
     public var thumbWheelRight: ButtonAction?
@@ -179,7 +179,7 @@ public struct Config: Codable, Equatable {
              dpiDownValue, dpiAction, swapLeftRight, smartShiftMode, dpiValue,
              invertScrollDirection, thumbWheelLeft, thumbWheelRight,
              smartShiftSensitivity, dpiCycleValues, menuBarOnly,
-             smoothScrollEnabled, smoothScrollMomentum
+             smoothScrollEnabled, smoothScrollLevel
     }
 
     public init(from decoder: Decoder) throws {
@@ -198,7 +198,7 @@ public struct Config: Codable, Equatable {
         dpiCycleValues = try c.decodeIfPresent([UInt16].self, forKey: .dpiCycleValues)
         invertScrollDirection = try c.decodeIfPresent(Bool.self, forKey: .invertScrollDirection)
         smoothScrollEnabled = try c.decodeIfPresent(Bool.self, forKey: .smoothScrollEnabled)
-        smoothScrollMomentum = try c.decodeIfPresent(Bool.self, forKey: .smoothScrollMomentum)
+        smoothScrollLevel = try c.decodeIfPresent(Double.self, forKey: .smoothScrollLevel)
         menuBarOnly = try c.decodeIfPresent(Bool.self, forKey: .menuBarOnly)
         thumbWheelLeft = try c.decodeIfPresent(ButtonAction.self, forKey: .thumbWheelLeft)
         thumbWheelRight = try c.decodeIfPresent(ButtonAction.self, forKey: .thumbWheelRight)
@@ -233,7 +233,7 @@ public struct Config: Codable, Equatable {
         self.invertScrollDirection = nil
         self.menuBarOnly = nil
         self.smoothScrollEnabled = nil
-        self.smoothScrollMomentum = nil
+        self.smoothScrollLevel = nil
         self.thumbWheelLeft = thumbWheelLeft
         self.thumbWheelRight = thumbWheelRight
     }

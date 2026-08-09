@@ -62,17 +62,17 @@ final class ConfigEntitlementTests: XCTestCase {
 
     func testStripsSmoothScrollWithoutEntitlement() {
         config.smoothScrollEnabled = true
-        config.smoothScrollMomentum = true
+        config.smoothScrollLevel = 75
         let filtered = config.filteringProFeatures { _ in false }
         XCTAssertNil(filtered.smoothScrollEnabled)
-        XCTAssertNil(filtered.smoothScrollMomentum)
+        XCTAssertNil(filtered.smoothScrollLevel)
     }
 
     func testKeepsSmoothScrollWithEntitlement() {
         config.smoothScrollEnabled = true
-        config.smoothScrollMomentum = false
+        config.smoothScrollLevel = 30
         let filtered = config.filteringProFeatures { _ in true }
         XCTAssertEqual(filtered.smoothScrollEnabled, true)
-        XCTAssertEqual(filtered.smoothScrollMomentum, false)
+        XCTAssertEqual(filtered.smoothScrollLevel, 30)
     }
 }

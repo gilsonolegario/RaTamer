@@ -338,10 +338,20 @@ final class ConfigStoreTests: XCTestCase {
         let store = ConfigStore(fileURL: url)
         var config = Config.empty()
         config.smoothScrollEnabled = true
-        config.smoothScrollMomentum = false
+        config.smoothScrollLevel = 75
         try store.save(config)
         let loaded = ConfigStore(fileURL: url).load()
         XCTAssertEqual(loaded.smoothScrollEnabled, true)
-        XCTAssertEqual(loaded.smoothScrollMomentum, false)
+        XCTAssertEqual(loaded.smoothScrollLevel, 75)
+    }
+
+    func testLegacySmoothScrollMomentumConfigDecodes() throws {
+        let json = """
+        {"version":1,"smoothScrollEnabled":true,"smoothScrollMomentum":true}
+        """
+        let data = Data(json.utf8)
+        let config = try JSONDecoder().decode(Config.self, from: data)
+        XCTAssertEqual(config.smoothScrollEnabled, true)
+        XCTAssertNil(config.smoothScrollLevel)
     }
 }

@@ -31,7 +31,7 @@ public extension Config {
         }
         if !entitled(.smoothScroll) {
             filtered.smoothScrollEnabled = nil
-            filtered.smoothScrollMomentum = nil
+            filtered.smoothScrollLevel = nil
         }
         return filtered
     }
