@@ -92,14 +92,16 @@ final class HIDReportMailboxTests: XCTestCase {
         let mailbox = HIDReportMailbox(capacity: 16)
         mailbox.beginRequest()
         let exp = expectation(description: "second owner waits")
+        let acquired = expectation(description: "second owner acquired")
         DispatchQueue.global().async {
             mailbox.beginRequest()
             exp.fulfill()
+            acquired.fulfill()
         }
         usleep(50_000)
         XCTAssertEqual(XCTWaiter.wait(for: [exp], timeout: 0.1), .timedOut)
         mailbox.endRequest()
-        wait(for: [exp], timeout: 1.0)
+        wait(for: [acquired], timeout: 1.0)
         mailbox.endRequest()
     }
 
