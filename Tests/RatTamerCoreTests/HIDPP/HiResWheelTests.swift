@@ -72,4 +72,63 @@ final class HiResWheelTests: XCTestCase {
     func testFeatureIDIs2121() {
         XCTAssertEqual(HiResWheel.featureID, 0x2121)
     }
+
+    func testParseWheelMovementParsesDeltaAndFlags() {
+        // flags 0x1F -> periods 15, resolution 1; deltaV 0x002C = 44
+        let m = HiResWheel.parseWheelMovement(
+            [0x11, 0x01, 0x0E, 0x00, 0x1F, 0x00, 0x2C],
+            deviceIndex: 1, featureIndex: 0x0E)
+        XCTAssertEqual(m?.deltaV, 44)
+        XCTAssertEqual(m?.periods, 15)
+        XCTAssertEqual(m?.resolution, true)
+    }
+
+    func testParseWheelMovementNegativeDelta() {
+        // flags 0x01 -> periods 1, resolution 0; deltaV 0xFF38 = -200
+        let m = HiResWheel.parseWheelMovement(
+            [0x11, 0x01, 0x0E, 0x00, 0x01, 0xFF, 0x38],
+            deviceIndex: 1, featureIndex: 0x0E)
+        XCTAssertEqual(m?.deltaV, -200)
+        XCTAssertEqual(m?.periods, 1)
+        XCTAssertEqual(m?.resolution, false)
+    }
+
+    func testParseWheelMovementRejectsOtherFeature() {
+        XCTAssertNil(HiResWheel.parseWheelMovement(
+            [0x11, 0x01, 0x0A, 0x00, 0x01, 0x00, 0x2C],
+            deviceIndex: 1, featureIndex: 0x0E))
+    }
+
+    func testParseWheelMovementRejectsShortReport() {
+        XCTAssertNil(HiResWheel.parseWheelMovement(
+            [0x11, 0x01, 0x0E, 0x00, 0x01],
+            deviceIndex: 1, featureIndex: 0x0E))
+    }
+
+    func testSetWheelModeHighResDiverted() throws {
+        let mock = MockHIDDevice()
+        // current mode 0x00 (native low) -> set high + target -> 0x03
+        mock.queuedReads = [[0x11, 0x01, 0x0E, 0x10, 0x00]]
+        try makeService(mock).setWheelMode(highResolution: true, target: true)
+        let written = try XCTUnwrap(mock.writeLog.last)
+        XCTAssertEqual(Array(written.prefix(7)), [0x11, 0x01, 0x0E, 0x21, 0x03, 0x00, 0x00])
+    }
+
+    func testSetWheelModePreservesInvert() throws {
+        let mock = MockHIDDevice()
+        // current mode 0x04 (inverted, native low) -> set high + target -> 0x07
+        mock.queuedReads = [[0x11, 0x01, 0x0E, 0x10, 0x04]]
+        try makeService(mock).setWheelMode(highResolution: true, target: true)
+        let written = try XCTUnwrap(mock.writeLog.last)
+        XCTAssertEqual(Array(written.prefix(7)), [0x11, 0x01, 0x0E, 0x21, 0x07, 0x00, 0x00])
+    }
+
+    func testSetWheelModeRestoresNative() throws {
+        let mock = MockHIDDevice()
+        // current mode 0x03 (diverted high) -> set native low -> 0x00
+        mock.queuedReads = [[0x11, 0x01, 0x0E, 0x10, 0x03]]
+        try makeService(mock).setWheelMode(highResolution: false, target: false)
+        let written = try XCTUnwrap(mock.writeLog.last)
+        XCTAssertEqual(Array(written.prefix(7)), [0x11, 0x01, 0x0E, 0x21, 0x00, 0x00, 0x00])
+    }
 }
