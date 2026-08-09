@@ -21,6 +21,10 @@ struct RatTestView: View {
     @State private var bounceDamping: Double = ScrollSmoother.defaultBounceDamping
     @State private var reversalConfirmation: Int = ScrollSmoother.defaultReversalConfirmation
     @State private var directionThreshold: Double = ScrollSmoother.defaultDirectionThreshold
+    @State private var smoothingEnabled = false
+    @State private var smoothFraction: Double = ScrollSmoother.defaultSmoothFraction
+    @State private var glideStopThreshold: Double = ScrollSmoother.defaultGlideStopThreshold
+    @State private var syncedLevel: Double?
 
     init(engine: RatTestEngine) {
         self.engine = engine
@@ -133,10 +137,27 @@ struct RatTestView: View {
             Text("Multiplier: \(engine.wheelMultiplier ?? 8)")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+            HStack {
+                Text("Level").frame(width: 160, alignment: .leading)
+                Slider(value: levelBinding, in: 0...100, step: 1)
+                Text(levelLabel).font(.caption.monospaced()).frame(width: 56, alignment: .trailing)
+            }
+            HStack(spacing: 6) {
+                Text("Presets").frame(width: 160, alignment: .leading)
+                Button("Discreta") { applyLevel(0) }
+                Button("Média") { applyLevel(50) }
+                Button("Fluida") { applyLevel(100) }
+                Button("Glide sã") { applyGlidePreset() }
+                Button("Mos-like") { applyMosPreset() }
+            }
             sliderRow("Max boost", value: $maxBoost, range: 1.0...6.0, step: 0.1)
             sliderRow("Momentum decay", value: $momentumDecay, range: 0.5...0.98, step: 0.01)
             Toggle("Momentum", isOn: $momentumEnabled)
                 .onChange(of: momentumEnabled) { _, _ in applySmoothParams() }
+            Toggle("Smoothing (glide)", isOn: $smoothingEnabled)
+                .onChange(of: smoothingEnabled) { _, _ in applySmoothParams() }
+            sliderRow("Smooth fraction", value: $smoothFraction, range: 0.02...0.15, step: 0.01)
+            sliderRow("Glide stop", value: $glideStopThreshold, range: 0.0...2.0, step: 0.1)
             sliderRow("Pixels per notch", value: $pixelsPerNotch, range: 1...40, step: 1)
             sliderRow("Accel window (s)", value: $accelerationWindow, range: 0.01...0.20, step: 0.01)
             sliderRow("Feed gap timeout (s)", value: $feedGapTimeout, range: 0.02...0.30, step: 0.01)
@@ -155,11 +176,64 @@ struct RatTestView: View {
         HStack {
             Text(title).frame(width: 160, alignment: .leading)
             Slider(value: value, in: range, step: step)
-                .onChange(of: value.wrappedValue) { _, _ in applySmoothParams() }
+                .onChange(of: value.wrappedValue) { _, _ in syncRawSliderChange() }
             Text(String(format: "%.3f", value.wrappedValue))
                 .font(.caption.monospaced())
                 .frame(width: 56, alignment: .trailing)
         }
+    }
+
+    private var levelBinding: Binding<Double> {
+        Binding(
+            get: {
+                if let syncedLevel { return syncedLevel }
+                return SmoothnessLevel.defaultValue
+            },
+            set: { applyLevel($0) }
+        )
+    }
+
+    private var levelLabel: String {
+        if let syncedLevel { return String(format: "%.0f", syncedLevel) }
+        return "custom"
+    }
+
+    private func applyLevel(_ level: Double) {
+        syncedLevel = level
+        let p = SmoothnessLevel.parameters(level: level,
+                                           multiplier: engine.wheelMultiplier ?? 8,
+                                           invert: false)
+        maxBoost = p.maxBoost
+        momentumDecay = p.momentumDecay
+        momentumEnabled = p.momentumEnabled
+        applySmoothParams()
+    }
+
+    private func applyGlidePreset() {
+        syncedLevel = nil
+        smoothingEnabled = true
+        pixelsPerNotch = 120
+        maxBoost = 1.5
+        smoothFraction = 0.13
+        glideStopThreshold = 0.5
+        accelerationWindow = 0.05
+        applySmoothParams()
+    }
+
+    private func applyMosPreset() {
+        syncedLevel = nil
+        smoothingEnabled = true
+        pixelsPerNotch = 132
+        maxBoost = 1.0
+        smoothFraction = 0.13
+        glideStopThreshold = 0.5
+        accelerationWindow = 0.05
+        applySmoothParams()
+    }
+
+    private func syncRawSliderChange() {
+        if syncedLevel != nil { syncedLevel = nil }
+        applySmoothParams()
     }
 
     private var currentParams: ScrollSmoother.Parameters {
@@ -177,7 +251,10 @@ struct RatTestView: View {
             bounceRatio: bounceRatio,
             bounceDamping: bounceDamping,
             reversalConfirmation: reversalConfirmation,
-            directionThreshold: directionThreshold)
+            directionThreshold: directionThreshold,
+            smoothingEnabled: smoothingEnabled,
+            smoothFraction: smoothFraction,
+            glideStopThreshold: glideStopThreshold)
     }
 
     private func applySmoothEnable() {
