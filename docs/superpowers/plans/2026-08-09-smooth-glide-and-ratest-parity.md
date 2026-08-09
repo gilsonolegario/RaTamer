@@ -982,20 +982,23 @@ git commit -m "feat(ratest): wheel mode, DPI and thumb wheel panels"
 **Interfaces:**
 - Consumes: tudo acima.
 
-- [ ] **Step 1: Suíte completa + build de todos os targets**
+- [x] **Step 1: Suíte completa + build de todos os targets**
 
 Run: `swift test 2>&1 | grep -E "Executed .* tests|failed" | tail -3`
 Expected: todos verdes (contagem maior que antes — novos testes do glide + catálogo).
+> **Resultado (2026-08-09):** 295 testes, 0 falhas.
 
 Run: `swift build 2>&1 | tail -3`
 Expected: build completo verde.
+> **Resultado (2026-08-09):** build completo verde.
 
-- [ ] **Step 2: Relançar o RatTest**
+- [x] **Step 2: Relançar o RatTest**
 
 ```bash
 pkill -f "debug/RatTest" || true
 nohup swift run RatTest > /tmp/ratetest.log 2>&1 &
 ```
+> **Resultado (2026-08-09):** relançado; janela auto-dimensiona (660×1184) com todas as seções visíveis (Buttons, Smooth Scroll, Wheel Mode, DPI, Thumb Wheel) sem scroll.
 
 - [ ] **Step 3: Checklist manual (usuário)**
 
