@@ -341,7 +341,7 @@ struct SmoothScrollRow: View {
                         HStack {
                             presetLabel("Discreta", value: SmoothnessLevel.min)
                             Spacer()
-                            presetLabel("Média", value: 50)
+                            presetLabel("Média", value: SmoothnessLevel.defaultValue)
                             Spacer()
                             presetLabel("Fluida", value: SmoothnessLevel.max)
                         }

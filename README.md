@@ -129,7 +129,8 @@ thumb wheel, DPI cycling and left/right swap.
 ## History
 
 **1.1.0** — Smooth scrolling: trackpad-style continuous vertical scrolling for
-hi-res wheels (Pro), with optional momentum. Toggle in Settings → General.
+hi-res wheels (Pro), tuned with a smoothness level slider and presets
+(Discreta/Média/Fluida) in Settings → General.
 
 **1.0.0** — Freemium: gestures, SmartShift, Run Shortcut and profiles moved to
 RatTamer Pro (Gumroad license key, pay-what-you-want). Free tier keeps all

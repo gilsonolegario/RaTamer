@@ -38,8 +38,8 @@ final class ScrollSmootherCoordinatorTests: XCTestCase {
         coordinator.onWheelMovement(WheelMovement(deltaV: 15, periods: 1, resolution: true))
         wait(for: [fed], timeout: 1)
         let t = Date(timeIntervalSince1970: now.timeIntervalSince1970 + 0.2)
-        XCTAssertEqual(smoother.tick(at: t), 20, accuracy: 0.0001)
-        XCTAssertEqual(smoother.tick(at: t + 1.0 / 120.0), 10, accuracy: 0.0001)
+        XCTAssertEqual(coordinator.synchronized { $0.tick(at: t) }, 20, accuracy: 0.0001)
+        XCTAssertEqual(coordinator.synchronized { $0.tick(at: t + 1.0 / 120.0) }, 10, accuracy: 0.0001)
     }
 
     func testStopResetsSmootherState() {
@@ -51,11 +51,11 @@ final class ScrollSmootherCoordinatorTests: XCTestCase {
         let coordinator = ScrollSmootherCoordinator(smoother: smoother,
                                                     now: { now },
                                                     poster: { _ in })
-        _ = smoother.feed(WheelMovement(deltaV: 15, periods: 1, resolution: true), at: now)
+        _ = coordinator.synchronized { $0.feed(WheelMovement(deltaV: 15, periods: 1, resolution: true), at: now) }
         coordinator.stop()
         // After reset, momentum is gone: tick after the feed gap returns 0.
         DispatchQueue.global().asyncAfter(deadline: .now() + 0.05) {
-            let out = smoother.tick(at: Date(timeIntervalSince1970: now.timeIntervalSince1970 + 0.2))
+            let out = coordinator.synchronized { $0.tick(at: Date(timeIntervalSince1970: now.timeIntervalSince1970 + 0.2)) }
             XCTAssertEqual(out, 0, accuracy: 0.0001)
             exp.fulfill()
         }

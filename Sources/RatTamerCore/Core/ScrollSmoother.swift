@@ -216,7 +216,7 @@ public final class ScrollSmoother {
     }
 
     private func glideTick() -> Double {
-        var remaining = target - current
+        let remaining = target - current
         if abs(remaining) <= parameters.glideStopThreshold {
             target = 0
             current = 0

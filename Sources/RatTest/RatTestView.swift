@@ -154,7 +154,7 @@ struct RatTestView: View {
             HStack(spacing: 6) {
                 Text("Presets").frame(width: 160, alignment: .leading)
                 Button("Discreta") { applyLevel(0) }
-                Button("Média") { applyLevel(50) }
+                Button("Média") { applyLevel(SmoothnessLevel.defaultValue) }
                 Button("Fluida") { applyLevel(100) }
                 Button("Glide sã") { applyGlidePreset() }
                 Button("Mos-like") { applyMosPreset() }

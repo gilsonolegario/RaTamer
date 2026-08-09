@@ -63,4 +63,10 @@ public final class ScrollSmootherCoordinator {
         }
         Self.log.info("smooth scroll timer stopped")
     }
+
+    /// Runs a closure on the coordinator's serial queue and returns its result,
+    /// keeping smoother access on the queue that owns it.
+    func synchronized<T>(_ body: (ScrollSmoother) -> T) -> T {
+        queue.sync { body(smoother) }
+    }
 }
