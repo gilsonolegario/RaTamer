@@ -302,7 +302,7 @@ struct BatteryStatusRow: View {
 
 struct SmoothScrollRow: View {
     @State private var enabled = false
-    @State private var momentum = false
+    @State private var level: Double = SmoothnessLevel.defaultValue
     @State private var loaded = false
     @State private var unavailable = false
     @State private var showProAlert = false
@@ -325,11 +325,27 @@ struct SmoothScrollRow: View {
                         apply()
                     }
                 if enabled {
-                    Toggle("Momentum", isOn: $momentum)
-                        .onChange(of: momentum) { _, _ in
-                            guard loaded else { return }
-                            apply()
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack {
+                            Text("Smoothness")
+                            Spacer()
+                            Text("\(Int(level))")
+                                .font(.caption.monospaced())
+                                .foregroundStyle(.secondary)
                         }
+                        Slider(value: $level, in: SmoothnessLevel.min...SmoothnessLevel.max, step: 1)
+                            .onChange(of: level) { _, _ in
+                                guard loaded else { return }
+                                apply()
+                            }
+                        HStack {
+                            presetLabel("Discreta", value: SmoothnessLevel.min)
+                            Spacer()
+                            presetLabel("Média", value: 50)
+                            Spacer()
+                            presetLabel("Fluida", value: SmoothnessLevel.max)
+                        }
+                    }
                 }
             }
         }
@@ -344,6 +360,16 @@ struct SmoothScrollRow: View {
         }
     }
 
+    private func presetLabel(_ name: String, value: Double) -> some View {
+        Text(name)
+            .font(.caption)
+            .foregroundStyle(level == value ? Color.accentColor : Color.secondary)
+            .onTapGesture {
+                level = value
+                apply()
+            }
+    }
+
     private func load() {
         guard AppModel.shared.engine?.hiResWheelService != nil else {
             unavailable = true
@@ -352,14 +378,14 @@ struct SmoothScrollRow: View {
         let config = AppModel.shared.configStore.load()
             .filteringProFeatures(entitled: AppModel.shared.isPro)
         enabled = config.smoothScrollEnabled == true
-        momentum = config.smoothScrollMomentum == true
+        level = config.smoothScrollLevel ?? SmoothnessLevel.defaultValue
         loaded = true
     }
 
     private func apply() {
         var config = AppModel.shared.configStore.load()
         config.smoothScrollEnabled = enabled
-        config.smoothScrollMomentum = momentum
+        config.smoothScrollLevel = level
         try? AppModel.shared.configStore.save(config)
         AppModel.shared.engine?.applyConfig()
     }
