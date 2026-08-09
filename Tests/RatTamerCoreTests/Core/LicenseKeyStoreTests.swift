@@ -34,6 +34,6 @@ final class LicenseKeyStoreTests: XCTestCase {
     }
 
     func testProFeatureCases() {
-        XCTAssertEqual(ProFeature.allCases, [.gestures, .smartShift, .runShortcut, .profiles])
+        XCTAssertEqual(ProFeature.allCases, [.gestures, .smartShift, .runShortcut, .profiles, .smoothScroll])
     }
 }

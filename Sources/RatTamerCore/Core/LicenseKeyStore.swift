@@ -5,6 +5,7 @@ public enum ProFeature: String, CaseIterable, Sendable {
     case smartShift
     case runShortcut
     case profiles
+    case smoothScroll
 }
 
 /// Persists the user's license key. Uses an injectable defaults store so tests

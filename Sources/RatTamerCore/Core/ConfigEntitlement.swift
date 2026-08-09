@@ -29,6 +29,10 @@ public extension Config {
             filtered.smartShiftMode = nil
             filtered.smartShiftSensitivity = nil
         }
+        if !entitled(.smoothScroll) {
+            filtered.smoothScrollEnabled = nil
+            filtered.smoothScrollMomentum = nil
+        }
         return filtered
     }
 }

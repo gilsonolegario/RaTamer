@@ -332,4 +332,16 @@ final class ConfigStoreTests: XCTestCase {
         let loaded = ConfigStore(fileURL: url).load()
         XCTAssertEqual(loaded.menuBarOnly, true)
     }
+
+    func testSmoothScrollFieldsRoundTrip() throws {
+        let url = tempDir.appendingPathComponent("smooth.json")
+        let store = ConfigStore(fileURL: url)
+        var config = Config.empty()
+        config.smoothScrollEnabled = true
+        config.smoothScrollMomentum = false
+        try store.save(config)
+        let loaded = ConfigStore(fileURL: url).load()
+        XCTAssertEqual(loaded.smoothScrollEnabled, true)
+        XCTAssertEqual(loaded.smoothScrollMomentum, false)
+    }
 }

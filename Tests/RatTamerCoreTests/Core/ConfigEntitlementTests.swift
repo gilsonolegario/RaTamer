@@ -59,4 +59,20 @@ final class ConfigEntitlementTests: XCTestCase {
         XCTAssertEqual(config.action(forCID: 0x00C3), .gesture(.logitechDefault()))
         XCTAssertEqual(config.smartShiftMode, .smartshift)
     }
+
+    func testStripsSmoothScrollWithoutEntitlement() {
+        config.smoothScrollEnabled = true
+        config.smoothScrollMomentum = true
+        let filtered = config.filteringProFeatures { _ in false }
+        XCTAssertNil(filtered.smoothScrollEnabled)
+        XCTAssertNil(filtered.smoothScrollMomentum)
+    }
+
+    func testKeepsSmoothScrollWithEntitlement() {
+        config.smoothScrollEnabled = true
+        config.smoothScrollMomentum = false
+        let filtered = config.filteringProFeatures { _ in true }
+        XCTAssertEqual(filtered.smoothScrollEnabled, true)
+        XCTAssertEqual(filtered.smoothScrollMomentum, false)
+    }
 }
