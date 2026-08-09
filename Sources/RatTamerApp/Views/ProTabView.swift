@@ -15,7 +15,7 @@ struct ProTabView: View {
             Text("RatTamer Pro").font(.headline)
             statusView
             Divider()
-            Text("Pro features: Gestures, SmartShift, Run Shortcut, multiple profiles.")
+            Text("Pro features: Gestures, SmartShift, Run Shortcut, Smooth Scrolling, multiple profiles.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Spacer()

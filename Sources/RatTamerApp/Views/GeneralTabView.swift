@@ -22,6 +22,7 @@ struct GeneralTabView: View {
             }
             Section("Scrolling") {
                 ScrollDirectionToggleRow()
+                SmoothScrollRow()
             }
             Section("Pointer Resolution") {
                 DPISliderRow()
@@ -296,5 +297,73 @@ struct BatteryStatusRow: View {
 
     private func title(for info: BatteryInfo) -> String {
         BatteryDisplay.title(for: info)
+    }
+}
+
+struct SmoothScrollRow: View {
+    @State private var enabled = false
+    @State private var momentum = false
+    @State private var loaded = false
+    @State private var unavailable = false
+    @State private var showProAlert = false
+
+    var body: some View {
+        Group {
+            if unavailable {
+                Text("Smooth scrolling unavailable on this device")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                Toggle("Smooth scrolling", isOn: $enabled)
+                    .onChange(of: enabled) { _, newValue in
+                        guard loaded else { return }
+                        if newValue, !isPro(.smoothScroll) {
+                            showProAlert = true
+                            enabled = false
+                            return
+                        }
+                        apply()
+                    }
+                if enabled {
+                    Toggle("Momentum", isOn: $momentum)
+                        .onChange(of: momentum) { _, _ in
+                            guard loaded else { return }
+                            apply()
+                        }
+                }
+            }
+        }
+        .onAppear(perform: load)
+        .alert("RatTamer Pro", isPresented: $showProAlert) {
+            Button("Get RatTamer Pro") {
+                NSWorkspace.shared.open(ProStore.productURL)
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Smooth scrolling is a Pro feature.")
+        }
+    }
+
+    private func load() {
+        guard AppModel.shared.engine?.hiResWheelService != nil else {
+            unavailable = true
+            return
+        }
+        let config = AppModel.shared.configStore.load()
+        enabled = config.smoothScrollEnabled == true
+        momentum = config.smoothScrollMomentum == true
+        loaded = true
+    }
+
+    private func apply() {
+        var config = AppModel.shared.configStore.load()
+        config.smoothScrollEnabled = enabled
+        config.smoothScrollMomentum = momentum
+        try? AppModel.shared.configStore.save(config)
+        AppModel.shared.engine?.applyConfig()
+    }
+
+    private func isPro(_ feature: ProFeature) -> Bool {
+        AppModel.shared.license.isPro(feature)
     }
 }
