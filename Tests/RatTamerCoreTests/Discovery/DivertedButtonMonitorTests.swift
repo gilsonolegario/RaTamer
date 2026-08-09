@@ -78,4 +78,38 @@ final class DivertedButtonMonitorTests: XCTestCase {
         XCTAssertEqual(presses, 0)
         XCTAssertEqual(monitor.pressed, [])
     }
+
+    func testWheelMovementRoutesToCallback() {
+        let monitor = DivertedButtonMonitor(deviceIndex: 1, featureIndex: 0x0A,
+                                            wheelFeatureIndex: 0x0E)
+        var movements: [WheelMovement] = []
+        monitor.onWheelMovement = { movements.append($0) }
+        // 11 01 0E 00 13 00 2C -> periods 3, resolution 1, deltaV 44
+        let bytes: [UInt8] = [0x11, 0x01, 0x0E, 0x00, 0x13, 0x00, 0x2C, 0, 0, 0, 0, 0]
+        XCTAssertTrue(monitor.feed(bytes))
+        XCTAssertEqual(movements.count, 1)
+        XCTAssertEqual(movements[0].deltaV, 44)
+        XCTAssertEqual(movements[0].periods, 3)
+        XCTAssertEqual(movements[0].resolution, true)
+    }
+
+    func testWheelReportDoesNotTriggerPress() {
+        let monitor = DivertedButtonMonitor(deviceIndex: 1, featureIndex: 0x0A,
+                                            wheelFeatureIndex: 0x0E)
+        var presses = 0
+        monitor.onControlPressed = { _ in presses += 1 }
+        let bytes: [UInt8] = [0x11, 0x01, 0x0E, 0x00, 0x01, 0x00, 0x2C, 0, 0, 0, 0, 0]
+        XCTAssertTrue(monitor.feed(bytes))
+        XCTAssertEqual(presses, 0)
+        XCTAssertEqual(monitor.pressed, [])
+    }
+
+    func testWheelRoutingIgnoredWithoutWheelFeatureIndex() {
+        let monitor = DivertedButtonMonitor(deviceIndex: 1, featureIndex: 0x0A)
+        var movements = 0
+        monitor.onWheelMovement = { _ in movements += 1 }
+        let bytes: [UInt8] = [0x11, 0x01, 0x0E, 0x00, 0x01, 0x00, 0x2C, 0, 0, 0, 0, 0]
+        XCTAssertFalse(monitor.feed(bytes))
+        XCTAssertEqual(movements, 0)
+    }
 }

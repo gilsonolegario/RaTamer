@@ -4,19 +4,29 @@ public final class DivertedButtonMonitor {
     public var onControlPressed: ((_ cid: UInt16) -> Void)?
     public var onControlReleased: ((_ cid: UInt16) -> Void)?
     public var onRawXY: ((_ dx: Int16, _ dy: Int16) -> Void)?
+    public var onWheelMovement: ((WheelMovement) -> Void)?
 
     public private(set) var pressed = Set<UInt16>()
 
     private let deviceIndex: UInt8
     private let featureIndex: UInt8
+    private let wheelFeatureIndex: UInt8?
 
-    public init(deviceIndex: UInt8, featureIndex: UInt8) {
+    public init(deviceIndex: UInt8, featureIndex: UInt8, wheelFeatureIndex: UInt8? = nil) {
         self.deviceIndex = deviceIndex
         self.featureIndex = featureIndex
+        self.wheelFeatureIndex = wheelFeatureIndex
     }
 
     @discardableResult
     public func feed(_ bytes: [UInt8]) -> Bool {
+        if let wheelFeatureIndex,
+           let movement = HiResWheel.parseWheelMovement(
+               bytes, deviceIndex: deviceIndex, featureIndex: wheelFeatureIndex
+           ) {
+            onWheelMovement?(movement)
+            return true
+        }
         if let raw = ReprogrammableControls.parseRawXYEvent(
             bytes, deviceIndex: deviceIndex, featureIndex: featureIndex
         ) {
