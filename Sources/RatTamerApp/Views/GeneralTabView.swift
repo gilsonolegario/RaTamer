@@ -350,6 +350,7 @@ struct SmoothScrollRow: View {
             return
         }
         let config = AppModel.shared.configStore.load()
+            .filteringProFeatures(entitled: AppModel.shared.license.isPro)
         enabled = config.smoothScrollEnabled == true
         momentum = config.smoothScrollMomentum == true
         loaded = true

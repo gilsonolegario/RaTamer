@@ -124,7 +124,7 @@ public final class HiResWheel {
         let flags = bytes[4]
         let periods = flags & 0x0F
         let resolution = (flags >> 4) & 1 == 1
-        let deltaV = Int16(bytes[5]) << 8 | Int16(bytes[6])
+        let deltaV = Int16(bitPattern: UInt16(bytes[5]) << 8 | UInt16(bytes[6]))
         return WheelMovement(deltaV: deltaV, periods: periods, resolution: resolution)
     }
 }

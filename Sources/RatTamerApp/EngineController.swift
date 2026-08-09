@@ -419,7 +419,8 @@ final class EngineController {
 
     private func handleWheelMovement(_ movement: WheelMovement) {
         guard enabled else { return }
-        smoothCoordinator?.onWheelMovement(movement)
+        guard let coordinator = smoothCoordinator else { return }
+        coordinator.onWheelMovement(movement)
     }
 
     private func postSmoothScroll(_ pixels: Double) {

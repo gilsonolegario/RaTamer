@@ -24,7 +24,28 @@ or run straight from the source tree:
 swift run RatTamer        # development mode, no app bundle
 ```
 
-The bundle is only needed for "Start at login" (via `SMAppService`). See [Distribution](#distribution) for the notarization caveats of the pre-built download.
+Releases are published with `./scripts/release.sh [VERSION] [draft]` — it builds the bundle, zips it and uploads it to the GitHub Release via `gh`. See [First launch (macOS 15+)](#first-launch-macos-15) for how to open the pre-built download the first time.
+
+## First launch (macOS 15+)
+
+The release download is **not notarized** — notarization requires a paid Apple
+Developer account — so macOS blocks the first launch. Since macOS 15 (Sequoia)
+the old right-click → Open bypass is **gone**, so use this flow instead:
+
+1. Double-click `RatTamer.app` → the dialog says it can't be opened → click **Done**.
+2. Open **System Settings → Privacy & Security → Security** (scroll to the bottom).
+3. Under "Allow applications from", find *"RatTamer was blocked to protect your Mac"* → click **Open Anyway** → confirm with your password.
+4. Launch RatTamer normally from now on.
+
+> **Tip:** `Open Anyway` only appears for ~1 hour after the blocked launch. If you don't see it, double-click the app once more and go straight back to System Settings.
+>
+> **Troubleshooting:** if macOS claims the app is "damaged", remove the quarantine attribute once:
+>
+> ```bash
+> xattr -dr com.apple.quarantine /Applications/RatTamer.app
+> ```
+
+**Prefer to skip all of this?** Build locally — a `swift build` output never receives the quarantine attribute, so Gatekeeper stays out of the way (requires only the Xcode Command Line Tools).
 
 ## Major features
 
@@ -39,6 +60,12 @@ The bundle is only needed for "Start at login" (via `SMAppService`). See [Distri
 - **About** — app icon and version in the Settings About tab.
 - **Completely free**, native SwiftUI, no daemons, no telemetry.
 
+## Smooth scrolling
+
+Trackpad-style vertical smooth scrolling for Logitech wheels is a Pro feature. It reads hi-res wheel deltas over HID++ and re-emits them as continuous pixel scroll events, with optional momentum.
+
+> Do not run RatTamer together with Logitech Options+, BetterMouse or similar mouse-config tools: they reprogram the same HID++ features and will fight over wheel mode.
+
 ### Screenshots
 
 [![Settings — Buttons tab](screenshots/settings-buttons.png)](screenshots/settings-buttons.png)
@@ -49,7 +76,7 @@ The bundle is only needed for "Start at login" (via `SMAppService`). See [Distri
 
 1. Build the app: `./scripts/build-app.sh` (or `swift run RatTamer` for development).
 2. Copy `build/RatTamer.app` to your Applications folder.
-3. Open RatTamer — the first run shows a short onboarding.
+3. Open RatTamer — the first run shows a short onboarding. If macOS blocks it, follow [First launch (macOS 15+)](#first-launch-macos-15).
 4. Grant **Accessibility** in System Settings → Privacy & Security as prompted (required to post shortcuts and clicks).
 5. Click the mouse icon in the menu bar to open the popover: connection status, battery, pointer resolution and a remapping toggle.
 6. Open **Settings…** to configure buttons, thumb wheel, SmartShift, DPI presets, login item and the Dock icon option.
@@ -81,8 +108,8 @@ The configuration is stored in `~/Library/Application Support/RatTamer/config.js
 RatTamer is free and always will be. The free tier covers button remapping, the
 thumb wheel, DPI cycling and left/right swap.
 
-**RatTamer Pro** adds gestures, SmartShift, Run Shortcut and (coming soon)
-multiple profiles — pay what you want (min. US$ 3), one-time, lifetime.
+**RatTamer Pro** adds gestures, SmartShift, Run Shortcut, smooth scrolling and
+(coming soon) multiple profiles — pay what you want (min. US$ 3), one-time, lifetime.
 
 1. Buy at [rattamer.gumroad.com/l/rattamer-pro](https://rattamer.gumroad.com/l/rattamer-pro).
 2. Open RatTamer → Settings → **Pro**, paste the license key from your receipt
@@ -90,25 +117,15 @@ multiple profiles — pay what you want (min. US$ 3), one-time, lifetime.
 3. Pro features unlock immediately in the Buttons tab. Re-enter the same key on
    any other Mac where you run RatTamer.
 
-## Distribution
-
-The app is **not notarized** — notarization requires a paid Apple Developer account — so macOS may block a downloaded copy. Two free paths work around that:
-
-1. **Local build (recommended).** Clone the repo and run `./scripts/build-app.sh`; you get `build/RatTamer.app` and "Start at login" works via `SMAppService`. Files built locally never receive the `com.apple.quarantine` attribute, so Gatekeeper stays out of the way. Requires only the Xcode Command Line Tools (already a build requirement).
-2. **GitHub Release (convenience).** The app is ad-hoc signed (`codesign -s -`, no identity) and published as a zip. A browser download sets the quarantine attribute, so remove it once:
-
-   ```bash
-   xattr -dr com.apple.quarantine RatTamer.app
-   ```
-
-   or right-click → Open → Open Anyway in Gatekeeper.
-
 ## Documentation
 
 - **How the app works, the config schema, developer tools and build details** — [docs/TECHNICAL.md](docs/TECHNICAL.md)
 - **The HID++ protocol, byte by byte** — [docs/HIDPP.md](docs/HIDPP.md)
 
 ## History
+
+**1.1.0** — Smooth scrolling: trackpad-style continuous vertical scrolling for
+hi-res wheels (Pro), with optional momentum. Toggle in Settings → General.
 
 **1.0.0** — Freemium: gestures, SmartShift, Run Shortcut and profiles moved to
 RatTamer Pro (Gumroad license key, pay-what-you-want). Free tier keeps all
