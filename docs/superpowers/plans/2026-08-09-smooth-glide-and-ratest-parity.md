@@ -1002,6 +1002,9 @@ nohup swift run RatTest > /tmp/ratetest.log 2>&1 &
 
 - [ ] **Step 3: Checklist manual (usuário)**
 
+> **Verificação automática de UI (2026-08-09):** screenshot da janela em execução confirmou — picker de ações rico ("Show Desktop", "Launchpad", "Native (default)" visíveis); painel Smooth Scroll completo (nível + 5 presets + toggles + todos os sliders); Wheel Mode "ratcheted" com botões; DPI "Current: 1200" + "Cycle DPI" + ciclo 200→1450→2750→4000; Thumb Wheel placeholder; status "Connected — 8 controls"; sem erros/crash.
+> **Pendente (validação física no hardware, usuário):** alternar ratcheted↔free-spin e sentir a mudança; "Cycle DPI" mudando o DPI físico; girar a roda lateral exibindo "left"/"right"; sensação do glide ("Glide sã"/"Mos-like") no uso real.
+
 1. Botões: picker agora lista todas as ações (sistema, clicks, gesture, cycleDPI).
 2. Smooth Scroll: slider de nível + presets; "Glide sã" ativa o glide com valores sãos; "Mos-like" replica a config do Mos; toggle "Smoothing (glide)" liga/desliga; sliders de fraction/stop funcionam ao vivo.
 3. Wheel Mode: mostra free-spin/ratcheted; botões alternam o modo.
