@@ -14,19 +14,44 @@ final class MockVerifier: LicenseVerifying {
 }
 
 final class ControllableVerifier: LicenseVerifying {
-    var pending: [CheckedContinuation<LicenseVerification, Error>] = []
-    var result: Result<LicenseVerification, Error> = .success(
-        LicenseVerification(success: true, uses: 1, purchase: nil)
-    )
+    private let lock = NSLock()
+    private var pending: [CheckedContinuation<LicenseVerification, Error>] = []
+    private var startedKeys: [String] = []
+    private var waiters: [CheckedContinuation<String, Never>] = []
 
     func verify(licenseKey: String) async throws -> LicenseVerification {
         try await withCheckedThrowingContinuation { continuation in
+            lock.lock()
             pending.append(continuation)
+            if waiters.isEmpty {
+                startedKeys.append(licenseKey)
+                lock.unlock()
+            } else {
+                let waiter = waiters.removeFirst()
+                lock.unlock()
+                waiter.resume(returning: licenseKey)
+            }
+        }
+    }
+
+    func awaitStartedCall() async -> String {
+        await withCheckedContinuation { (continuation: CheckedContinuation<String, Never>) in
+            lock.lock()
+            if !startedKeys.isEmpty {
+                let key = startedKeys.removeFirst()
+                lock.unlock()
+                continuation.resume(returning: key)
+            } else {
+                waiters.append(continuation)
+                lock.unlock()
+            }
         }
     }
 
     func complete(at index: Int, with outcome: Result<LicenseVerification, Error>) {
+        lock.lock()
         let continuation = pending.remove(at: index)
+        lock.unlock()
         continuation.resume(with: outcome)
     }
 }
@@ -168,11 +193,12 @@ final class LicenseServiceTests: XCTestCase {
 
         LicenseKeyStore.save("OLD-KEY")
         let staleTask = Task { await service.validate() }
-        let newerTask = Task { await service.submit(key: "NEW-KEY") }
+        let firstKey = await verifier.awaitStartedCall()
+        XCTAssertEqual(firstKey, "OLD-KEY")
 
-        while verifier.pending.count < 2 {
-            await Task.yield()
-        }
+        let newerTask = Task { await service.submit(key: "NEW-KEY") }
+        let secondKey = await verifier.awaitStartedCall()
+        XCTAssertEqual(secondKey, "NEW-KEY")
 
         verifier.complete(at: 1, with: .success(
             LicenseVerification(success: false, uses: 1, purchase: nil)
