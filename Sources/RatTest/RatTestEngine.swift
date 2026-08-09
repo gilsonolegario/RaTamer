@@ -21,6 +21,14 @@ final class RatTestEngine {
     private var hiResWheelService: HiResWheel?
     private var smoothCoordinator: ScrollSmootherCoordinator?
     private(set) var wheelMultiplier: UInt8?
+    private var smartShiftService: SmartShiftControls?
+    private var dpiService: AdjustableDPI?
+    private var thumbWheelTap: ScrollWheelTap?
+    private(set) var hasSmartShift = false
+    private(set) var wheelModeDescription = "unknown"
+    private(set) var currentDPI: UInt16?
+    private(set) var dpiCycleValues: [UInt16] = []
+    var onThumbWheel: ((ThumbWheel.Direction) -> Void)?
 
     init(configStore: ConfigStore) {
         self.configStore = configStore
@@ -57,6 +65,30 @@ final class RatTestEngine {
                 self.wheelMultiplier = (try? service.getInfo())?.multiplier
             }
 
+            if let ssIndex = try? session.getFeatureIndex(
+                featureID: SmartShiftControls.enhancedFeatureID, deviceIndex: deviceIndex
+            ) {
+                self.smartShiftService = SmartShiftControls(session: session,
+                                                            deviceIndex: deviceIndex,
+                                                            featureIndex: ssIndex,
+                                                            featureID: SmartShiftControls.enhancedFeatureID)
+                self.hasSmartShift = true
+            } else if let ssIndex = try? session.getFeatureIndex(
+                featureID: SmartShiftControls.featureID, deviceIndex: deviceIndex
+            ) {
+                self.smartShiftService = SmartShiftControls(session: session,
+                                                            deviceIndex: deviceIndex,
+                                                            featureIndex: ssIndex)
+                self.hasSmartShift = true
+            }
+            if let dpiIndex = try? session.getFeatureIndex(
+                featureID: AdjustableDPI.featureID, deviceIndex: deviceIndex
+            ) {
+                self.dpiService = AdjustableDPI(session: session,
+                                                deviceIndex: deviceIndex,
+                                                featureIndex: dpiIndex)
+            }
+
             let monitor = DivertedButtonMonitor(deviceIndex: deviceIndex,
                                                 featureIndex: featureIndex,
                                                 wheelFeatureIndex: wheelFeatureIndex)
@@ -71,6 +103,16 @@ final class RatTestEngine {
                 try? controlsService.setDiverted(cid: control.cid, diverted: true)
             }
             startLoopThread(monitor: monitor)
+            let tap = ScrollWheelTap(
+                shouldIntercept: { _ in true },
+                onNotch: { [weak self] direction in self?.onThumbWheel?(direction) }
+            )
+            self.thumbWheelTap = tap
+            if AXIsProcessTrusted() {
+                tap.start()
+                refreshWheelModeStatus()
+                refreshDPI()
+            }
             onStatus?("Connected — \(controls.count) controls")
             return true
         } catch {
@@ -93,6 +135,8 @@ final class RatTestEngine {
         if let service = hiResWheelService {
             try? service.setWheelMode(highResolution: false, target: false)
         }
+        thumbWheelTap?.stop()
+        thumbWheelTap = nil
         session = nil
         controlsService = nil
     }
@@ -153,5 +197,41 @@ final class RatTestEngine {
         thread.name = "RatTest.ButtonLoop"
         thread.start()
         loopThread = thread
+    }
+
+    func setWheelMode(ratcheted: Bool) {
+        guard let service = smartShiftService else { return }
+        let status = SmartShiftStatus.status(for: ratcheted ? .ratcheted : .freespin, sensitivity: 0)
+        try? service.setRatchetControlMode(status: status)
+        refreshWheelModeStatus()
+    }
+
+    func refreshWheelModeStatus() {
+        guard let service = smartShiftService,
+              let status = try? service.getRatchetControlMode() else {
+            wheelModeDescription = hasSmartShift ? "unavailable" : "no SmartShift"
+            return
+        }
+        wheelModeDescription = status.wheelMode == 1 ? "free-spin" : "ratcheted"
+    }
+
+    func refreshDPI() {
+        guard let service = dpiService else { return }
+        let sensors = (try? service.getSensorCount()) ?? 0
+        guard sensors > 0 else { return }
+        currentDPI = (try? service.getSensorDpi(sensor: 0))?.dpi
+        if let valid = try? service.getSensorDpiList(sensor: 0), !valid.isEmpty {
+            dpiCycleValues = DPICycle.recommendedPresets(from: valid)
+        } else if let current = currentDPI {
+            dpiCycleValues = DPICycle.defaultPresets
+            _ = current
+        }
+    }
+
+    func cycleDPI() {
+        guard let service = dpiService, let current = currentDPI,
+              let next = DPICycle.next(current: current, presets: dpiCycleValues) else { return }
+        try? service.setSensorDpi(sensor: 0, dpi: next)
+        refreshDPI()
     }
 }
