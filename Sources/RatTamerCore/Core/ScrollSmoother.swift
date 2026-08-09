@@ -19,6 +19,13 @@ public final class ScrollSmoother {
         public var bounceDamping: Double
         public var reversalConfirmation: Int
         public var directionThreshold: Double
+        /// When true, feed accumulates into a target and tick glides the
+        /// output toward it with an exponential ease-out (MOS-style).
+        public var smoothingEnabled: Bool
+        /// Fraction of the remaining distance approached per tick (120 Hz).
+        public var smoothFraction: Double
+        /// Distance below which the glide emits the remainder and stops.
+        public var glideStopThreshold: Double
 
         public init(multiplier: UInt8,
                     momentumEnabled: Bool,
@@ -33,7 +40,10 @@ public final class ScrollSmoother {
                     bounceRatio: Double = ScrollSmoother.defaultBounceRatio,
                     bounceDamping: Double = ScrollSmoother.defaultBounceDamping,
                     reversalConfirmation: Int = ScrollSmoother.defaultReversalConfirmation,
-                    directionThreshold: Double = ScrollSmoother.defaultDirectionThreshold) {
+                    directionThreshold: Double = ScrollSmoother.defaultDirectionThreshold,
+                    smoothingEnabled: Bool = false,
+                    smoothFraction: Double = ScrollSmoother.defaultSmoothFraction,
+                    glideStopThreshold: Double = ScrollSmoother.defaultGlideStopThreshold) {
             self.multiplier = multiplier
             self.momentumEnabled = momentumEnabled
             self.invert = invert
@@ -48,6 +58,9 @@ public final class ScrollSmoother {
             self.bounceDamping = bounceDamping
             self.reversalConfirmation = reversalConfirmation
             self.directionThreshold = directionThreshold
+            self.smoothingEnabled = smoothingEnabled
+            self.smoothFraction = smoothFraction
+            self.glideStopThreshold = glideStopThreshold
         }
     }
 
@@ -76,6 +89,10 @@ public final class ScrollSmoother {
     public static let defaultReversalConfirmation: Int = 2
     /// Minimum magnitude for a feed to establish/refresh the dominant direction.
     public static let defaultDirectionThreshold: Double = 1.0
+    /// Glide ease-out fraction per tick at 120 Hz (≈ Mos Duration 3.0).
+    public static let defaultSmoothFraction: Double = 0.13
+    /// Consensus stop epsilon from SmoothScroll / LinearMouse.
+    public static let defaultGlideStopThreshold: Double = 0.5
 
     public var parameters: Parameters
 
@@ -85,6 +102,9 @@ public final class ScrollSmoother {
     private var oppositeCount = 0
     private var lastAcceptedAt: Date?
     private var lastAcceptedMagnitude: Double = 0
+    private var target: Double = 0
+    private var current: Double = 0
+    private var carry: Double = 0
 
     public init(parameters: Parameters) {
         self.parameters = parameters
@@ -186,6 +206,9 @@ public final class ScrollSmoother {
         oppositeCount = 0
         lastAcceptedAt = nil
         lastAcceptedMagnitude = 0
+        target = 0
+        current = 0
+        carry = 0
     }
 
     private func applyInvert(_ value: Double) -> Double {

@@ -153,4 +153,11 @@ final class ScrollSmootherTests: XCTestCase {
         XCTAssertEqual(s.tick(at: t1), 10, accuracy: 0.0001)
         XCTAssertEqual(s.tick(at: t2), 5, accuracy: 0.0001) // 10 * 0.5
     }
+
+    func testGlideParameterDefaults() {
+        let p = ScrollSmoother.Parameters(multiplier: 8, momentumEnabled: false, invert: false)
+        XCTAssertEqual(p.smoothingEnabled, false)
+        XCTAssertEqual(p.smoothFraction, ScrollSmoother.defaultSmoothFraction)
+        XCTAssertEqual(p.glideStopThreshold, ScrollSmoother.defaultGlideStopThreshold)
+    }
 }
