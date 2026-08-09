@@ -217,4 +217,35 @@ final class HIDPPSessionTests: XCTestCase {
         let session = HIDPPSession(device: mock)
         XCTAssertEqual(try session.readProductName(deviceIndex: 1), "USB Receiver")
     }
+
+    func testConcurrentRequestsDoNotStealReplies() throws {
+        let mock = MockHIDDevice()
+        let session = HIDPPSession(device: mock)
+        mock.onWrite = { bytes in
+            bytes[2] == 0x0A
+                ? [0x11, 0x01, 0x0A, 0x30, 0x00, 0x00, 0x00, 0x00, 0x00]
+                : [0x11, 0x01, 0x0B, 0x30, 0x00, 0x00, 0x00, 0x00, 0x00]
+        }
+
+        let group = DispatchGroup()
+        let resultsLock = NSLock()
+        var results: [UInt8] = []
+        let queue = DispatchQueue(label: "test.hidpp.concurrent", attributes: .concurrent)
+
+        for feature in [0x0A, 0x0B] {
+            group.enter()
+            queue.async {
+                defer { group.leave() }
+                if let resp = try? session.request(
+                    deviceIndex: 1, featureIndex: UInt8(feature), functionID: 0x03, timeout: 1.0
+                ), resp.count > 2 {
+                    resultsLock.lock()
+                    results.append(resp[2])
+                    resultsLock.unlock()
+                }
+            }
+        }
+        XCTAssertEqual(group.wait(timeout: .now() + 5), .success)
+        XCTAssertEqual(results.sorted(), [0x0A, 0x0B])
+    }
 }
