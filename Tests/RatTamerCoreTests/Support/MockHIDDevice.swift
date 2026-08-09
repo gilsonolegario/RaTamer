@@ -3,13 +3,19 @@ import Foundation
 
 final class MockHIDDevice: HIDDevice {
     var writeLog: [[UInt8]] = []
-    var queuedReads: [[UInt8]] = []
+    private let mailbox = HIDReportMailbox(capacity: 64)
     var onWrite: (([UInt8]) -> [UInt8]?)?
     var onRemoved: (() -> Void)?
     var productName: String?
-    var inFlightRequests = 0
     private(set) var closeCalled = false
     private(set) var closeCount = 0
+
+    /// Mirrors the real wrapper: seeded reports go through the exact same
+    /// FIFO mailbox the production wrapper uses.
+    var queuedReads: [[UInt8]] {
+        get { mailbox.snapshot() }
+        set { mailbox.replaceAll(newValue) }
+    }
 
     func close() {
         closeCalled = true
@@ -19,31 +25,23 @@ final class MockHIDDevice: HIDDevice {
     func write(_ bytes: [UInt8]) throws {
         writeLog.append(bytes)
         if let response = onWrite?(bytes) {
-            queuedReads.append(response)
+            mailbox.enqueue(response)
         }
     }
 
-    /// Mirrors the real wrapper: while a synchronous request is in flight,
-    /// `read` must not consume reports so it cannot steal the request's reply.
     func read(timeout: TimeInterval) throws -> [UInt8]? {
-        guard inFlightRequests == 0 else { return nil }
-        return readFromQueue()
+        mailbox.read(timeout: timeout)
     }
 
     func readForRequest(timeout: TimeInterval) throws -> [UInt8]? {
-        readFromQueue()
+        mailbox.readForRequest(timeout: timeout)
     }
 
     func beginRequest() {
-        inFlightRequests += 1
+        mailbox.beginRequest()
     }
 
     func endRequest() {
-        inFlightRequests -= 1
-    }
-
-    private func readFromQueue() -> [UInt8]? {
-        guard !queuedReads.isEmpty else { return nil }
-        return queuedReads.removeFirst()
+        mailbox.endRequest()
     }
 }

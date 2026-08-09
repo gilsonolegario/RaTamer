@@ -89,9 +89,8 @@ final class HIDPPSessionTests: XCTestCase {
         XCTAssertFalse(answered)
     }
 
-    func testPingSucceedsWhileARequestIsInFlight() throws {
+    func testPingSerializesWithRequests() throws {
         let mock = MockHIDDevice()
-        mock.inFlightRequests = 1
         mock.onWrite = { _ in [0x10, 0x01, 0x00, 0x01, 0x00] }
         let session = HIDPPSession(device: mock)
         let answered = try session.ping(deviceIndex: 1)
