@@ -4,9 +4,7 @@ import IOKit.hid
 public final class IOHIDDeviceWrapper: HIDDevice {
     public let productName: String?
     private let device: IOHIDDevice
-    private let condition = NSCondition()
-    private var mailbox: [UInt8]?
-    private var inFlightRequests = 0
+    private let mailbox = HIDReportMailbox(capacity: 16)
     private var buffer = [UInt8](repeating: 0, count: 64)
     private var readThread: Thread!
     private var runLoop: CFRunLoop!
@@ -72,53 +70,22 @@ public final class IOHIDDeviceWrapper: HIDDevice {
     }
 
     public func read(timeout: TimeInterval) throws -> [UInt8]? {
-        let deadline = Date().addingTimeInterval(timeout)
-        condition.lock()
-        defer { condition.unlock() }
-        while true {
-            if inFlightRequests > 0 {
-                if !condition.wait(until: deadline) { return nil }
-                continue
-            }
-            if let pending = mailbox {
-                mailbox = nil
-                return pending
-            }
-            if !condition.wait(until: deadline) { return nil }
-        }
+        mailbox.read(timeout: timeout)
     }
 
     public func readForRequest(timeout: TimeInterval) throws -> [UInt8]? {
-        let deadline = Date().addingTimeInterval(timeout)
-        condition.lock()
-        defer { condition.unlock() }
-        while true {
-            if let pending = mailbox {
-                mailbox = nil
-                return pending
-            }
-            if !condition.wait(until: deadline) { return nil }
-        }
+        mailbox.readForRequest(timeout: timeout)
     }
 
     public func beginRequest() {
-        condition.lock()
-        inFlightRequests += 1
-        condition.broadcast()
-        condition.unlock()
+        mailbox.beginRequest()
     }
 
     public func endRequest() {
-        condition.lock()
-        inFlightRequests -= 1
-        condition.broadcast()
-        condition.unlock()
+        mailbox.endRequest()
     }
 
     private func enqueue(_ bytes: [UInt8]) {
-        condition.lock()
-        mailbox = bytes
-        condition.broadcast()
-        condition.unlock()
+        mailbox.enqueue(bytes)
     }
 }
