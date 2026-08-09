@@ -12,7 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let hosting = NSHostingController(rootView: RatTestView(engine: engine))
         let window = NSWindow(contentViewController: hosting)
         window.title = "RatTest — Button Tester"
-        window.setContentSize(NSSize(width: 660, height: 500))
+        window.setContentSize(NSSize(width: 660, height: 720))
         window.styleMask = [.titled, .closable, .miniaturizable]
         window.center()
         window.makeKeyAndOrderFront(nil)

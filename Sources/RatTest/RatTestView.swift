@@ -8,6 +8,19 @@ struct RatTestView: View {
     @State private var status = ""
     @State private var controls: [ControlInfo] = []
     @State private var pressed = Set<UInt16>()
+    @State private var smoothEnabled = false
+    @State private var maxBoost: Double = ScrollSmoother.defaultMaxBoost
+    @State private var momentumDecay: Double = ScrollSmoother.defaultMomentumDecay
+    @State private var momentumEnabled = false
+    @State private var pixelsPerNotch: Double = ScrollSmoother.defaultPixelsPerNotch
+    @State private var accelerationWindow: Double = ScrollSmoother.defaultAccelerationWindow
+    @State private var feedGapTimeout: Double = ScrollSmoother.defaultFeedGapTimeout
+    @State private var momentumStopThreshold: Double = ScrollSmoother.defaultMomentumStopThreshold
+    @State private var bounceWindow: Double = ScrollSmoother.defaultBounceWindow
+    @State private var bounceRatio: Double = ScrollSmoother.defaultBounceRatio
+    @State private var bounceDamping: Double = ScrollSmoother.defaultBounceDamping
+    @State private var reversalConfirmation: Int = ScrollSmoother.defaultReversalConfirmation
+    @State private var directionThreshold: Double = ScrollSmoother.defaultDirectionThreshold
 
     init(engine: RatTestEngine) {
         self.engine = engine
@@ -27,9 +40,12 @@ struct RatTestView: View {
                 }
             }
             Text(footerText).font(.caption).foregroundStyle(.secondary)
+            Divider()
+            Text("Smooth Scroll").font(.headline)
+            smoothPanel
         }
         .padding()
-        .frame(width: 660, height: 500)
+        .frame(width: 660, height: 720)
         .onAppear {
             engine.onStatus = { status = $0 }
             engine.onControlsChanged = { controls = $0 }
@@ -108,5 +124,67 @@ struct RatTestView: View {
             Text("Forward Click").tag(ButtonAction.click(button: 3))
             Text("Back Click").tag(ButtonAction.click(button: 4))
         }
+    }
+
+    private var smoothPanel: some View {
+        Group {
+            Toggle("Enabled (diverts wheel to HID++)", isOn: $smoothEnabled)
+                .onChange(of: smoothEnabled) { _, _ in applySmoothEnable() }
+            Text("Multiplier: \(engine.wheelMultiplier ?? 8)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            sliderRow("Max boost", value: $maxBoost, range: 1.0...6.0, step: 0.1)
+            sliderRow("Momentum decay", value: $momentumDecay, range: 0.5...0.98, step: 0.01)
+            Toggle("Momentum", isOn: $momentumEnabled)
+                .onChange(of: momentumEnabled) { _, _ in applySmoothParams() }
+            sliderRow("Pixels per notch", value: $pixelsPerNotch, range: 1...40, step: 1)
+            sliderRow("Accel window (s)", value: $accelerationWindow, range: 0.01...0.20, step: 0.01)
+            sliderRow("Feed gap timeout (s)", value: $feedGapTimeout, range: 0.02...0.30, step: 0.01)
+            sliderRow("Momentum stop", value: $momentumStopThreshold, range: 0.0...1.0, step: 0.05)
+            sliderRow("Bounce window (s)", value: $bounceWindow, range: 0.0...0.20, step: 0.005)
+            sliderRow("Bounce ratio", value: $bounceRatio, range: 0.1...1.0, step: 0.05)
+            sliderRow("Bounce damping", value: $bounceDamping, range: 0.0...1.0, step: 0.05)
+            Stepper("Reversal confirmation: \(reversalConfirmation)",
+                    value: $reversalConfirmation, in: 1...5)
+                .onChange(of: reversalConfirmation) { _, _ in applySmoothParams() }
+            sliderRow("Direction threshold", value: $directionThreshold, range: 0.0...5.0, step: 0.25)
+        }
+    }
+
+    private func sliderRow(_ title: String, value: Binding<Double>, range: ClosedRange<Double>, step: Double) -> some View {
+        HStack {
+            Text(title).frame(width: 160, alignment: .leading)
+            Slider(value: value, in: range, step: step)
+                .onChange(of: value.wrappedValue) { _, _ in applySmoothParams() }
+            Text(String(format: "%.3f", value.wrappedValue))
+                .font(.caption.monospaced())
+                .frame(width: 56, alignment: .trailing)
+        }
+    }
+
+    private var currentParams: ScrollSmoother.Parameters {
+        ScrollSmoother.Parameters(
+            multiplier: engine.wheelMultiplier ?? 8,
+            momentumEnabled: momentumEnabled,
+            invert: false,
+            maxBoost: maxBoost,
+            momentumDecay: momentumDecay,
+            pixelsPerNotch: pixelsPerNotch,
+            accelerationWindow: accelerationWindow,
+            feedGapTimeout: feedGapTimeout,
+            momentumStopThreshold: momentumStopThreshold,
+            bounceWindow: bounceWindow,
+            bounceRatio: bounceRatio,
+            bounceDamping: bounceDamping,
+            reversalConfirmation: reversalConfirmation,
+            directionThreshold: directionThreshold)
+    }
+
+    private func applySmoothEnable() {
+        engine.setSmoothScroll(enabled: smoothEnabled, parameters: currentParams)
+    }
+
+    private func applySmoothParams() {
+        engine.setSmoothParameters(currentParams)
     }
 }
