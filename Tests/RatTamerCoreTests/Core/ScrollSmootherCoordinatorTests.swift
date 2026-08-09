@@ -21,6 +21,27 @@ final class ScrollSmootherCoordinatorTests: XCTestCase {
         XCTAssertEqual(posted.first ?? 0, 20, accuracy: 0.0001)
     }
 
+    func testSetParametersEnablesMomentumDecay() {
+        let now = Date()
+        let fed = expectation(description: "fed")
+        let smoother = ScrollSmoother(parameters: .init(multiplier: 15,
+                                                        momentumEnabled: false,
+                                                        invert: false))
+        let coordinator = ScrollSmootherCoordinator(smoother: smoother,
+                                                    now: { now },
+                                                    poster: { _ in fed.fulfill() })
+        coordinator.setParameters(.init(multiplier: 15,
+                                        momentumEnabled: true,
+                                        invert: false,
+                                        momentumDecay: 0.5,
+                                        pixelsPerNotch: 20))
+        coordinator.onWheelMovement(WheelMovement(deltaV: 15, periods: 1, resolution: true))
+        wait(for: [fed], timeout: 1)
+        let t = Date(timeIntervalSince1970: now.timeIntervalSince1970 + 0.2)
+        XCTAssertEqual(smoother.tick(at: t), 20, accuracy: 0.0001)
+        XCTAssertEqual(smoother.tick(at: t + 1.0 / 120.0), 10, accuracy: 0.0001)
+    }
+
     func testStopResetsSmootherState() {
         let now = Date()
         let exp = expectation(description: "stopped")

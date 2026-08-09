@@ -1,12 +1,11 @@
 import Foundation
 import os
-import RatTamerCore
 
 /// Owns the ~120 Hz scroll timer, feeds the pure `ScrollSmoother` with wheel
 /// movements, and posts the resulting deltas via the injected poster closure.
 /// All smoother access happens on this coordinator's private queue so the
 /// HID++ loop thread and the timer never race on the smoother's state.
-final class ScrollSmootherCoordinator {
+public final class ScrollSmootherCoordinator {
     private static let log = Logger(subsystem: "com.rattamer", category: "smoothscroll")
     private static let tickInterval: TimeInterval = 1.0 / 120.0
 
@@ -16,22 +15,32 @@ final class ScrollSmootherCoordinator {
     private let queue = DispatchQueue(label: "com.rattamer.smoothscroll")
     private var timer: DispatchSourceTimer?
 
-    init(smoother: ScrollSmoother,
-         now: @escaping () -> Date = Date.init,
-         poster: @escaping (Double) -> Void) {
+    public init(smoother: ScrollSmoother,
+                now: @escaping () -> Date = Date.init,
+                poster: @escaping (Double) -> Void) {
         self.smoother = smoother
         self.now = now
         self.poster = poster
     }
 
-    func onWheelMovement(_ movement: WheelMovement) {
+    public func onWheelMovement(_ movement: WheelMovement) {
         queue.async { [weak self] in
             guard let self else { return }
             self.poster(self.smoother.feed(movement, at: self.now()))
         }
     }
 
-    func start() {
+    /// Applies a new parameter set live, resetting the smoother so stale
+    /// direction/momentum state from the previous tuning does not leak over.
+    public func setParameters(_ parameters: ScrollSmoother.Parameters) {
+        queue.async { [weak self] in
+            guard let self else { return }
+            self.smoother.parameters = parameters
+            self.smoother.reset()
+        }
+    }
+
+    public func start() {
         guard timer == nil else { return }
         let timer = DispatchSource.makeTimerSource(queue: queue)
         timer.schedule(deadline: .now() + Self.tickInterval,
@@ -46,7 +55,7 @@ final class ScrollSmootherCoordinator {
         Self.log.info("smooth scroll timer started")
     }
 
-    func stop() {
+    public func stop() {
         timer?.cancel()
         timer = nil
         queue.async { [weak self] in
