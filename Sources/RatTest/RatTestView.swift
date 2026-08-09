@@ -116,17 +116,8 @@ struct RatTestView: View {
     }
 
     private var actionOptions: some View {
-        Group {
-            Text("Disabled (native)").tag(ButtonAction.disabled)
-            Text("Cmd+W (Close)").tag(ButtonAction.shortcut(key: "w", modifiers: ["command"]))
-            Text("Volume Up").tag(ButtonAction.system("volumeUp"))
-            Text("Volume Down").tag(ButtonAction.system("volumeDown"))
-            Text("Mission Control").tag(ButtonAction.system("missionControl"))
-            Text("Show Desktop").tag(ButtonAction.system("showDesktop"))
-            Text("Previous Space").tag(ButtonAction.system("previousSpace"))
-            Text("Next Space").tag(ButtonAction.system("nextSpace"))
-            Text("Forward Click").tag(ButtonAction.click(button: 3))
-            Text("Back Click").tag(ButtonAction.click(button: 4))
+        ForEach(ActionCatalog.allActions, id: \.self) { action in
+            Text(ActionCatalog.title(for: action)).tag(action)
         }
     }
 
