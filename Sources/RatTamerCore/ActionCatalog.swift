@@ -1,7 +1,5 @@
-import RatTamerCore
-
-enum ActionCatalog {
-    static func title(for action: ButtonAction) -> String {
+public enum ActionCatalog {
+    public static func title(for action: ButtonAction) -> String {
         switch action {
         case .disabled: return "Native (default)"
         case .shortcut(let key, let modifiers):
@@ -17,7 +15,7 @@ enum ActionCatalog {
         }
     }
 
-    static func icon(for action: ButtonAction) -> String {
+    public static func icon(for action: ButtonAction) -> String {
         switch action {
         case .disabled: return "circle.slash"
         case .shortcut: return "keyboard"
@@ -30,7 +28,28 @@ enum ActionCatalog {
         }
     }
 
-    static func systemTitle(_ name: String) -> String {
+    public static var allActions: [ButtonAction] {
+        let systems: [String] = [
+            "missionControl", "appExpose", "showDesktop", "launchpad",
+            "previousSpace", "nextSpace", "spotlight", "lockScreen",
+            "volumeUp", "volumeDown", "volumeUpSmall", "volumeDownSmall", "volumeMute",
+        ]
+        let defaultGesture = GestureConfig(
+            click: .disabled,
+            up: .system("missionControl"),
+            down: .system("showDesktop"),
+            left: .click(button: 3),
+            right: .click(button: 4))
+        var actions: [ButtonAction] = [.disabled]
+        actions.append(contentsOf: systems.map { .system($0) })
+        actions.append(.click(button: 3))
+        actions.append(.click(button: 4))
+        actions.append(.gesture(defaultGesture))
+        actions.append(.cycleDPI)
+        return actions
+    }
+
+    public static func systemTitle(_ name: String) -> String {
         switch name {
         case "missionControl": return "Mission Control"
         case "appExpose": return "App Expose"
@@ -49,7 +68,7 @@ enum ActionCatalog {
         }
     }
 
-    static func systemIcon(_ name: String) -> String {
+    public static func systemIcon(_ name: String) -> String {
         switch name {
         case "missionControl", "appExpose": return "rectangle.3.group"
         case "showDesktop": return "rectangle.split.2x1"
@@ -67,7 +86,7 @@ enum ActionCatalog {
         }
     }
 
-    static func shortcutDisplay(key: String, modifiers: [String]) -> String {
+    public static func shortcutDisplay(key: String, modifiers: [String]) -> String {
         var result = ""
         let symbols: [(String, String)] = [
             ("control", "⌃"), ("option", "⌥"), ("shift", "⇧"), ("command", "⌘"),
