@@ -350,7 +350,7 @@ struct SmoothScrollRow: View {
             return
         }
         let config = AppModel.shared.configStore.load()
-            .filteringProFeatures(entitled: AppModel.shared.license.isPro)
+            .filteringProFeatures(entitled: AppModel.shared.isPro)
         enabled = config.smoothScrollEnabled == true
         momentum = config.smoothScrollMomentum == true
         loaded = true
@@ -365,6 +365,6 @@ struct SmoothScrollRow: View {
     }
 
     private func isPro(_ feature: ProFeature) -> Bool {
-        AppModel.shared.license.isPro(feature)
+        AppModel.shared.isPro(feature)
     }
 }

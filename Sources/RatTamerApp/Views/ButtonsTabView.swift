@@ -108,7 +108,7 @@ struct ButtonsTabView: View {
     }
 
     private func isPro(_ feature: ProFeature) -> Bool {
-        AppModel.shared.license.isPro(feature)
+        AppModel.shared.isPro(feature)
     }
 
     private func proGate(_ feature: ProFeature, _ action: @escaping () -> Void) {

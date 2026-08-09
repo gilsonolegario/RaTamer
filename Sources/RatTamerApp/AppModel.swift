@@ -33,9 +33,19 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// Central Pro gate. Debug builds unlock everything so features can be
+    /// tested without a license key; release builds check the real entitlement.
+    func isPro(_ feature: ProFeature) -> Bool {
+        #if DEBUG
+        return true
+        #else
+        return license.isPro(feature)
+        #endif
+    }
+
     func startEngine() {
         let engine = EngineController(configStore: configStore) { [weak self] feature in
-            self?.license.isPro(feature) ?? false
+            self?.isPro(feature) ?? false
         }
         engine.onStatus = { [weak self] text in
             DispatchQueue.main.async { self?.statusText = text }
