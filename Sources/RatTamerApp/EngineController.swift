@@ -27,6 +27,7 @@ final class EngineController {
     private var _dpiService: AdjustableDPI?
     private var _batteryService: BatteryStatus?
     private var _hiResWheelService: HiResWheel?
+    private var smoothCoordinator: ScrollSmootherCoordinator?
     private var stopped = false
     private var _enabled = true
     private let enabledLock = NSLock()
@@ -68,6 +69,7 @@ final class EngineController {
                 ioQueue.async { [weak self] in
                     guard let self else { return }
                     self.restoreNativeDiverts()
+                    self.restoreSmoothScroll()
                 }
             }
         }
@@ -165,9 +167,11 @@ final class EngineController {
                                                      featureIndex: batteryIndex,
                                                      featureID: BatteryStatus.unifiedFeatureID)
             }
+            var wheelFeatureIndex: UInt8?
             if let wheelIndex = try? session.getFeatureIndex(
                 featureID: HiResWheel.featureID, deviceIndex: deviceIndex
             ) {
+                wheelFeatureIndex = wheelIndex
                 self._hiResWheelService = HiResWheel(session: session,
                                                      deviceIndex: deviceIndex,
                                                      featureIndex: wheelIndex)
@@ -179,7 +183,9 @@ final class EngineController {
                                                    hasDPI: _dpiService != nil,
                                                    hasSmartShift: hasSmartShift)
 
-            let monitor = DivertedButtonMonitor(deviceIndex: deviceIndex, featureIndex: featureIndex)
+            let monitor = DivertedButtonMonitor(deviceIndex: deviceIndex,
+                                                featureIndex: featureIndex,
+                                                wheelFeatureIndex: wheelFeatureIndex)
             monitor.onControlPressed = { [weak self] cid in
                 self?.handlePress(cid)
             }
@@ -188,6 +194,9 @@ final class EngineController {
             }
             monitor.onRawXY = { [weak self] dx, dy in
                 self?.handleRawXY(dx: dx, dy: dy)
+            }
+            monitor.onWheelMovement = { [weak self] movement in
+                self?.handleWheelMovement(movement)
             }
             self.monitor = monitor
 
@@ -252,6 +261,9 @@ final class EngineController {
         if let service = _hiResWheelService {
             applyScrollInversionIfNeeded(service: service)
         }
+        if let service = _hiResWheelService {
+            applySmoothScrollIfNeeded(service: service)
+        }
     }
 
     func applyAction(_ action: ButtonAction?, forCID cid: UInt16) {
@@ -282,6 +294,7 @@ final class EngineController {
         pingTimer = nil
         watchdog = nil
         restoreNativeDiverts()
+        restoreSmoothScroll()
         gestureDetector.end()
         gestureCID = nil
         scrollWheelTap?.stop()
@@ -376,6 +389,49 @@ final class EngineController {
         guard let invert = currentConfig().invertScrollDirection else { return }
         Self.log.info("scroll invert: \(invert)")
         try? service.setInverted(invert)
+    }
+
+    private func applySmoothScrollIfNeeded(service: HiResWheel) {
+        let config = currentConfig()
+        let enabled = config.smoothScrollEnabled == true
+        Self.log.info("smooth scroll: \(enabled ? "on" : "off")")
+        try? service.setWheelMode(highResolution: enabled, target: enabled)
+        smoothCoordinator?.stop()
+        smoothCoordinator = nil
+        guard enabled else { return }
+        let info = try? service.getInfo()
+        let params = ScrollSmoother.Parameters(multiplier: info?.multiplier ?? 8,
+                                               momentumEnabled: config.smoothScrollMomentum == true,
+                                               invert: config.invertScrollDirection ?? false)
+        let coordinator = ScrollSmootherCoordinator(smoother: ScrollSmoother(parameters: params)) { [weak self] pixels in
+            self?.postSmoothScroll(pixels)
+        }
+        coordinator.start()
+        smoothCoordinator = coordinator
+    }
+
+    private func restoreSmoothScroll() {
+        smoothCoordinator?.stop()
+        smoothCoordinator = nil
+        guard let service = _hiResWheelService else { return }
+        try? service.setWheelMode(highResolution: false, target: false)
+    }
+
+    private func handleWheelMovement(_ movement: WheelMovement) {
+        guard enabled else { return }
+        smoothCoordinator?.onWheelMovement(movement)
+    }
+
+    private func postSmoothScroll(_ pixels: Double) {
+        guard Permissions.isAccessibilityTrusted() else { return }
+        let value = Int32(pixels.rounded())
+        guard value != 0 else { return }
+        guard let event = CGEvent(scrollWheelEvent2Source: nil, units: .pixel,
+                                  wheelCount: 1, wheel1: value, wheel2: 0, wheel3: 0) else {
+            return
+        }
+        event.setIntegerValueField(.scrollWheelEventIsContinuous, value: 1)
+        event.post(tap: .cghidEventTap)
     }
 
     private func setupWatchdog() {
