@@ -219,6 +219,24 @@ final class ActionEngineTests: XCTestCase {
         XCTAssertThrowsError(try engine.execute(.runShortcut("SS Volume Up")))
     }
 
+    func testRunShortcutBlockedWhenProGateDenies() throws {
+        let runner = MockShortcutRunner()
+        let engine = ActionEngine(poster: MockEventPoster(),
+                                  shortcutRunner: runner,
+                                  proGate: { _ in false })
+        try engine.execute(.runShortcut("SS Volume Up"))
+        XCTAssertTrue(runner.names.isEmpty, "runShortcut must be blocked without entitlement")
+    }
+
+    func testRunShortcutRunsWhenProGateAllows() throws {
+        let runner = MockShortcutRunner()
+        let engine = ActionEngine(poster: MockEventPoster(),
+                                  shortcutRunner: runner,
+                                  proGate: { _ in true })
+        try engine.execute(.runShortcut("SS Volume Up"))
+        XCTAssertEqual(runner.names, ["SS Volume Up"])
+    }
+
     func testVolumeSmallActionsRunScripts() throws {
         func scripts(for action: ButtonAction) throws -> [String] {
             let runner = MockScriptRunner()

@@ -134,13 +134,16 @@ public final class ActionEngine {
     private let poster: EventPoster
     private let scriptRunner: ScriptRunner
     private let shortcutRunner: ShortcutRunner
+    private let proGate: (ProFeature) -> Bool
 
     public init(poster: EventPoster,
                 scriptRunner: ScriptRunner = ProcessScriptRunner(),
-                shortcutRunner: ShortcutRunner = ProcessShortcutRunner()) {
+                shortcutRunner: ShortcutRunner = ProcessShortcutRunner(),
+                proGate: @escaping (ProFeature) -> Bool = { _ in true }) {
         self.poster = poster
         self.scriptRunner = scriptRunner
         self.shortcutRunner = shortcutRunner
+        self.proGate = proGate
     }
 
     public func execute(_ action: ButtonAction) throws {
@@ -155,6 +158,10 @@ public final class ActionEngine {
             poster.postKey(keyCode, down: true, flags: flags)
             poster.postKey(keyCode, down: false, flags: flags)
         case .runShortcut(let name):
+            guard proGate(.runShortcut) else {
+                Self.log.info("runShortcut '\(name, privacy: .public)' blocked — Pro required")
+                return
+            }
             Self.log.info("run shortcut name=\(name, privacy: .public)")
             try shortcutRunner.run(name)
         case .system(let name):
