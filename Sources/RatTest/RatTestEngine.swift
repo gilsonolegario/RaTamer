@@ -1,3 +1,5 @@
+import ApplicationServices
+import CoreGraphics
 import Foundation
 import RatTamerCore
 
@@ -16,6 +18,9 @@ final class RatTestEngine {
     var onPress: ((UInt16) -> Void)?
     var onRelease: ((UInt16) -> Void)?
     private(set) var controls: [ControlInfo] = []
+    private var hiResWheelService: HiResWheel?
+    private var smoothCoordinator: ScrollSmootherCoordinator?
+    private(set) var wheelMultiplier: UInt8?
 
     init(configStore: ConfigStore) {
         self.configStore = configStore
@@ -40,9 +45,26 @@ final class RatTestEngine {
             self.controls = try controlsService.enumerate()
             onControlsChanged?(controls)
 
-            let monitor = DivertedButtonMonitor(deviceIndex: deviceIndex, featureIndex: featureIndex)
+            var wheelFeatureIndex: UInt8?
+            if let wheelIndex = try? session.getFeatureIndex(
+                featureID: HiResWheel.featureID, deviceIndex: deviceIndex
+            ) {
+                wheelFeatureIndex = wheelIndex
+                let service = HiResWheel(session: session,
+                                         deviceIndex: deviceIndex,
+                                         featureIndex: wheelIndex)
+                self.hiResWheelService = service
+                self.wheelMultiplier = (try? service.getInfo())?.multiplier
+            }
+
+            let monitor = DivertedButtonMonitor(deviceIndex: deviceIndex,
+                                                featureIndex: featureIndex,
+                                                wheelFeatureIndex: wheelFeatureIndex)
             monitor.onControlPressed = { [weak self] cid in self?.onPress?(cid) }
             monitor.onControlReleased = { [weak self] cid in self?.onRelease?(cid) }
+            monitor.onWheelMovement = { [weak self] movement in
+                self?.smoothCoordinator?.onWheelMovement(movement)
+            }
             self.monitor = monitor
 
             for control in controls where control.isDivertable {
@@ -66,6 +88,11 @@ final class RatTestEngine {
         }
         loopThread = nil
         monitor = nil
+        smoothCoordinator?.stop()
+        smoothCoordinator = nil
+        if let service = hiResWheelService {
+            try? service.setWheelMode(highResolution: false, target: false)
+        }
         session = nil
         controlsService = nil
     }
@@ -80,6 +107,37 @@ final class RatTestEngine {
         var config = configStore.load()
         config.setAction(action, forCID: cid)
         try? configStore.save(config)
+    }
+
+    func setSmoothScroll(enabled: Bool, parameters: ScrollSmoother.Parameters) {
+        guard let service = hiResWheelService else { return }
+        try? service.setWheelMode(highResolution: enabled, target: enabled)
+        smoothCoordinator?.stop()
+        smoothCoordinator = nil
+        guard enabled else { return }
+        let coordinator = ScrollSmootherCoordinator(
+            smoother: ScrollSmoother(parameters: parameters)
+        ) { [weak self] pixels in
+            self?.postPixels(pixels)
+        }
+        coordinator.start()
+        smoothCoordinator = coordinator
+    }
+
+    func setSmoothParameters(_ parameters: ScrollSmoother.Parameters) {
+        smoothCoordinator?.setParameters(parameters)
+    }
+
+    private func postPixels(_ pixels: Double) {
+        guard AXIsProcessTrusted() else { return }
+        let value = Int32(pixels.rounded())
+        guard value != 0 else { return }
+        guard let event = CGEvent(scrollWheelEvent2Source: nil, units: .pixel,
+                                  wheelCount: 1, wheel1: value, wheel2: 0, wheel3: 0) else {
+            return
+        }
+        event.setIntegerValueField(.scrollWheelEventIsContinuous, value: 1)
+        event.post(tap: .cghidEventTap)
     }
 
     private func startLoopThread(monitor: DivertedButtonMonitor) {
