@@ -175,8 +175,10 @@ struct RatTestView: View {
     private func sliderRow(_ title: String, value: Binding<Double>, range: ClosedRange<Double>, step: Double) -> some View {
         HStack {
             Text(title).frame(width: 160, alignment: .leading)
-            Slider(value: value, in: range, step: step)
-                .onChange(of: value.wrappedValue) { _, _ in syncRawSliderChange() }
+            Slider(value: value, in: range, step: step) { editing in
+                if !editing, syncedLevel != nil { syncedLevel = nil }
+            }
+            .onChange(of: value.wrappedValue) { _, _ in applySmoothParams() }
             Text(String(format: "%.3f", value.wrappedValue))
                 .font(.caption.monospaced())
                 .frame(width: 56, alignment: .trailing)
@@ -228,11 +230,6 @@ struct RatTestView: View {
         smoothFraction = 0.13
         glideStopThreshold = 0.5
         accelerationWindow = 0.05
-        applySmoothParams()
-    }
-
-    private func syncRawSliderChange() {
-        if syncedLevel != nil { syncedLevel = nil }
         applySmoothParams()
     }
 
