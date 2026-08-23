@@ -307,9 +307,9 @@ enum ScrollGraphPainter {
         let font = Font.system(size: 9, design: .monospaced)
         let smoothColor = ScrollGraphPalette.line.opacity(active ? 0.9 : 0.35)
         let rawColor = ScrollGraphPalette.accent.opacity(active ? 0.9 : 0.35)
-        context.draw(Text("— SMOOTHED saída").font(font).foregroundStyle(smoothColor),
+        context.draw(Text("— SMOOTHED output").font(font).foregroundStyle(smoothColor),
                      at: CGPoint(x: size.width - 6, y: 50), anchor: .topTrailing)
-        context.draw(Text("| RAW entrada").font(font).foregroundStyle(rawColor),
+        context.draw(Text("| RAW input").font(font).foregroundStyle(rawColor),
                      at: CGPoint(x: size.width - 6, y: 62), anchor: .topTrailing)
     }
 
@@ -317,10 +317,10 @@ enum ScrollGraphPainter {
         let rect = Path(CGRect(x: plot.left, y: plot.top,
                                width: plot.right - plot.left, height: plot.bottom - plot.top))
         context.fill(rect, with: .color(ScrollGraphPalette.ink.opacity(0.7)))
-        let title = Text("Ligue o Smooth scrolling para capturar")
+        let title = Text("Enable Smooth scrolling to capture")
             .font(.system(size: 12, design: .monospaced))
             .foregroundStyle(ScrollGraphPalette.faintText)
-        let subtitle = Text("RAW entrada e SMOOTHED saída aparecem aqui ao rolar.")
+        let subtitle = Text("RAW input and SMOOTHED output appear here as you scroll.")
             .font(.system(size: 9, design: .monospaced))
             .foregroundStyle(ScrollGraphPalette.dimText)
         let center = CGPoint(x: (plot.left + plot.right) / 2, y: (plot.top + plot.bottom) / 2)
