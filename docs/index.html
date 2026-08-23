@@ -75,8 +75,13 @@
     transition: transform .16s ease, filter .16s ease;
   }
   .btn:hover { transform: translateY(-1px); filter: brightness(.97); }
-  .cta-side { color: var(--muted); font-size: 14.5px; margin-left: 14px; }
-  .cta-side:hover { color: var(--text); }
+  .btn-ghost {
+    display: inline-block; padding: 12px 30px; border-radius: 11px;
+    border: 1px solid rgba(255,255,255,.18); background: rgba(255,255,255,.04);
+    color: var(--text); font-size: 15px; font-weight: 600;
+    transition: transform .16s ease, border-color .16s ease;
+  }
+  .btn-ghost:hover { transform: translateY(-1px); border-color: rgba(255,255,255,.35); }
   .platform { margin-top: 16px; color: var(--muted); font-size: 13px; }
 
   figure { margin: 0; }
@@ -229,9 +234,9 @@
     <p class="sub rise d2">RatTamer speaks <b>HID++ 2.0</b> directly to your Logitech mouse — every button remappable,
       ratchet / free-spin / SmartShift, DPI cycling and trackpad-style smooth scrolling.
       Quit the app and the mouse returns to stock.</p>
-    <div class="rise d3">
+    <div class="rise d3" style="display:flex; gap:14px; justify-content:center; flex-wrap:wrap">
       <a class="btn" href="https://github.com/gilsonolegario/RaTamer/releases">Download v1.0.2</a>
-      <a class="cta-side" href="https://github.com/gilsonolegario/RaTamer">source code ↗</a>
+      <a class="btn-ghost" href="https://github.com/gilsonolegario/RaTamer">Source code</a>
     </div>
     <p class="platform rise d4">macOS 14+ &middot; universal (Apple Silicon &amp; Intel) &middot; MIT &middot; free</p>
     <figure class="hero-shot rise d5">
