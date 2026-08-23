@@ -32,7 +32,7 @@ struct SettingsView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
-        .frame(minWidth: 700, idealWidth: 780, minHeight: 560, idealHeight: 620)
+        .frame(minWidth: 520, idealWidth: 560, minHeight: 420, idealHeight: 500)
         .onAppear {
             // Pre-1.1 panes ("Advanced") no longer exist; fall back to General
             // so the segmented picker never shows an empty selection.
