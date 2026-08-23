@@ -27,6 +27,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             OnboardingWindow.shared.showIfNeeded()
         }
+        // Test automation hook: abre Settings sem simular cliques.
+        if ProcessInfo.processInfo.environment["RATTAMER_SHOW_SETTINGS"] == "1" {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                SettingsWindow.shared.show()
+            }
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
