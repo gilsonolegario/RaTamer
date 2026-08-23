@@ -44,13 +44,15 @@ public final class ScrollSmootherCoordinator {
         }
     }
 
-    /// Applies a new parameter set live, resetting the smoother so stale
-    /// direction/momentum state from the previous tuning does not leak over.
+    /// Applies a new parameter set live. Uses a soft reset: momentum and
+    /// direction state are dropped so stale tuning does not leak over, but an
+    /// in-flight glide keeps draining (`target`/`current`/`carry` survive),
+    /// so changing presets mid-scroll does not kill the wheel.
     public func setParameters(_ parameters: ScrollSmoother.Parameters) {
         queue.async { [weak self] in
             guard let self else { return }
             self.smoother.parameters = parameters
-            self.smoother.reset()
+            self.smoother.softReset()
         }
     }
 

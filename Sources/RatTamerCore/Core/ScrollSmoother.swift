@@ -274,6 +274,17 @@ public final class ScrollSmoother {
         carry = 0
     }
 
+    /// Parameter-change reset: drops momentum and anti-reversal state but
+    /// keeps an in-flight glide (target/current/carry) so scrolling continues
+    /// seamlessly under the new parameters.
+    public func softReset() {
+        velocity = 0
+        direction = 0
+        oppositeCount = 0
+        lastAcceptedAt = nil
+        lastAcceptedMagnitude = 0
+    }
+
     /// Whether the smoother still has motion to emit: a glide target being
     /// drained, or momentum waiting out its feed gap / still above the stop
     /// threshold. When false, the coordinator can stop its tick timer.

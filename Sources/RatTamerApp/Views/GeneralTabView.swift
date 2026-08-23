@@ -408,10 +408,27 @@ struct SmoothScrollRow: View {
         .onAppear(perform: load)
     }
 
+    @State private var persistTask: Task<Void, Never>?
+
     private func setLevel(_ newValue: Double) {
         guard loaded else { return }
         level = newValue
-        apply()
+        // Live parameter application only. Running the full config here
+        // would redo HID++ setup on every slider tick and stall the wheel.
+        let p = SmoothnessLevel.parameters(level: newValue, multiplier: 8, invert: false)
+        AppModel.shared.engine?.updateSmoothParameters(p)
+        persistTask?.cancel()
+        persistTask = Task { [enabled, level] in
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            guard !Task.isCancelled else { return }
+            var config = AppModel.shared.configStore.load()
+            config.smoothScrollEnabled = enabled
+            config.smoothScrollLevel = level
+            if level != nil {
+                config.smoothScrollAdvanced = nil
+            }
+            try? AppModel.shared.configStore.save(config)
+        }
     }
 
     private func applyPreset(_ preset: SmoothnessPreset) {

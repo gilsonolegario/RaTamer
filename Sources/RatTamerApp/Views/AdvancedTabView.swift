@@ -219,13 +219,23 @@ struct AdvancedTabView: View {
         AppModel.shared.engine?.applyConfig()
     }
 
+    @State private var persistTask: Task<Void, Never>?
+
+    /// Persists config debounced: dragging the smoothness slider fires this
+    /// per tick, and synchronous JSON I/O on the main thread here shows up as
+    /// a wheel hitch. Live parameter application stays immediate above.
     private func applyLive() {
-        var config = AppModel.shared.configStore.load()
-        config.smoothScrollEnabled = enabled
-        config.smoothScrollLevel = level
-        config.smoothScrollAdvanced = storedAdvanced
-        try? AppModel.shared.configStore.save(config)
         AppModel.shared.engine?.updateSmoothParameters(currentParams())
+        persistTask?.cancel()
+        persistTask = Task { [enabled, level, storedAdvanced] in
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            guard !Task.isCancelled else { return }
+            var config = AppModel.shared.configStore.load()
+            config.smoothScrollEnabled = enabled
+            config.smoothScrollLevel = level
+            config.smoothScrollAdvanced = storedAdvanced
+            try? AppModel.shared.configStore.save(config)
+        }
     }
 
     private var storedAdvanced: ScrollSmoother.Parameters? {
