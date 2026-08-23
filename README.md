@@ -6,6 +6,8 @@ A native macOS menu bar app that replaces Logitech Options+ for the MX Master 3 
 
 ![Swift](https://img.shields.io/badge/Swift-5.9-FA7343?logo=swift&logoColor=white&style=flat)
 ![macOS](https://img.shields.io/badge/macOS-14%2B-000000?logo=apple&logoColor=white&style=flat)
+![Universal](https://img.shields.io/badge/arch-arm64%20%2B%20x86__64-blueviolet?style=flat)
+![License](https://img.shields.io/badge/license-MIT-green?style=flat)
 ![Version](https://img.shields.io/badge/version-1.0.2-FF9F1C?style=flat)
 
 [![Settings — About tab](screenshots/settings-about.png)](screenshots/settings-about.png)
@@ -15,7 +17,7 @@ A native macOS menu bar app that replaces Logitech Options+ for the MX Master 3 
 Grab the latest pre-built app from the [Releases page](https://github.com/gilsonolegario/RaTamer/releases) — or build it locally:
 
 ```bash
-./scripts/build-app.sh    # produces build/RatTamer.app (ad-hoc signed)
+./scripts/build-app.sh    # universal binary (arm64 + x86_64) → build/RatTamer.app
 ```
 
 or run straight from the source tree:
@@ -64,9 +66,10 @@ the old right-click → Open bypass is **gone**, so use this flow instead:
 
 Trackpad-style vertical smooth scrolling for Logitech wheels. It reads hi-res wheel
 deltas over HID++ and re-emits them as continuous pixel scroll events. A Smoothness
-slider (0–100) with presets Discreta (0), Média (50, default) and Fluida (100) lives
-in Settings → General. Settings → **Advanced** adds full tuning of the momentum,
-glide, feed and bounce parameters — all free.
+slider (0–100) lives in Settings → General with nine presets — Native (0), Smooth
+(35), Glide (60), Mos (80), Soft (84), RaT (87, default), Warm (89), Flow (90) and
+Fluid (100). Settings → **Advanced** adds full tuning of the momentum, glide, feed
+and bounce parameters — all free.
 
 > Do not run RatTamer together with Logitech Options+, BetterMouse or similar mouse-config tools: they reprogram the same HID++ features and will fight over wheel mode.
 
@@ -124,15 +127,25 @@ full advanced tuning. No license keys, no accounts, no telemetry.
 
 ## History
 
-**2.0.0** — Completely free: gestures, SmartShift, Run Shortcut, advanced smooth
-scroll tuning and every other feature are now unlocked for everyone. The license
-system was removed.
+**1.0.2** — Native smoothness control: a standard slider plus a compact preset menu
+replaces the tick bar and chip grid; remaining Portuguese UI strings translated to
+English; universal binary (Apple Silicon + Intel); updated screenshots.
 
-**1.1.0** — Smooth scrolling: trackpad-style continuous vertical scrolling for
-hi-res wheels, with a smoothness level slider and presets (Discreta/Média/Fluida)
-in Settings → General; advanced tuning in Settings → Advanced.
+**1.0.1** — HID++ hardening: FIFO report mailbox with exclusive request ownership,
+covered by concurrency tests.
 
-**0.9.0** — About tab with app icon (160pt) and version; menu bar popover with status, battery, pointer resolution and a remapping toggle; option to hide the Dock icon (menu bar only); DPI cycling (1000/1600/2000/4000); button remapping with left/right swap; thumb wheel actions; SmartShift wheel mode control; gestures; screenshots.
+**1.0.0** — First stable release; RatTest live tuning panel, complete button action
+catalog, glide convergence fixes.
+
+**0.9.0** — Initial public beta: About tab with app icon and version; menu bar
+popover with status, battery, pointer resolution and a remapping toggle; option to
+hide the Dock icon (menu bar only); DPI cycling (1000/1600/2000/4000); button
+remapping with left/right swap; thumb wheel actions; SmartShift wheel mode control;
+gestures.
+
+## License
+
+RatTamer is released under the [MIT License](LICENSE).
 
 ---
 
