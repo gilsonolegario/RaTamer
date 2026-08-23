@@ -38,14 +38,14 @@ final class SettingsWindow {
         let window = SettingsNSWindow(contentViewController: hosting)
         window.title = "RatTamer — General"
         // Compact utility window (Mos-like): content scrolls, the window doesn't
-        // need to show every section at once. New autosave name so a previously
-        // saved giant frame doesn't override the compact default.
+        // need to show every section at once. No frame autosave: the window
+        // hugs each pane's content on open (a restored oversized frame would
+        // fight resizeToContent).
         window.setContentSize(NSSize(width: 560, height: 500))
         window.contentMinSize = NSSize(width: 520, height: 320)
         window.contentMaxSize = NSSize(width: 800, height: 1400)
         window.styleMask = [.titled, .closable, .resizable]
         window.isReleasedWhenClosed = false
-        window.setFrameAutosaveName("RatTamerSettingsCompact")
         self.window = window
     }
 
