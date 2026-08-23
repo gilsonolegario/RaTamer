@@ -399,13 +399,8 @@ struct SmoothScrollRow: View {
                         PresetSlider(value: Binding(get: { displayedLevel },
                                                     set: { setLevel($0) }),
                                      currentLevel: level,
-                                     onSelect: { applyPreset($0) })
-                        HStack(spacing: 6) {
-                            HelpButton(text: HelpTexts.preset)
-                            Button("Reset to default") { resetToDefault() }
-                                .controlSize(.small)
-                            Spacer()
-                        }
+                                     onSelect: { applyPreset($0) },
+                                     onReset: { resetToDefault() })
                     }
                 }
             }
