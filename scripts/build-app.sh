@@ -44,8 +44,8 @@ cat > "$APP/Contents/Info.plist" <<'EOF'
     <key>CFBundleExecutable</key><string>RatTamer</string>
     <key>CFBundleIconFile</key><string>RatTamer</string>
     <key>CFBundlePackageType</key><string>APPL</string>
-    <key>CFBundleShortVersionString</key><string>1.0.1</string>
-    <key>CFBundleVersion</key><string>3</string>
+    <key>CFBundleShortVersionString</key><string>1.0.2</string>
+    <key>CFBundleVersion</key><string>4</string>
     <key>LSMinimumSystemVersion</key><string>14.0</string>
 </dict>
 </plist>
