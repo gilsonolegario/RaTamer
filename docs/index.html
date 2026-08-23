@@ -12,153 +12,253 @@
 <meta property="og:title" content="RatTamer — MX Master control for macOS, without Options+">
 <meta property="og:description" content="Per-button remapping, SmartShift, DPI cycling and trackpad-style smooth scrolling over HID++. Native menu bar app, MIT licensed.">
 <meta property="og:image" content="https://gilsonolegario.github.io/RaTamer/assets/icone.png">
-<meta name="theme-color" content="#191c20">
+<meta name="theme-color" content="#0a0b0e">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"RatTamer","operatingSystem":"macOS 14+","applicationCategory":"UtilitiesApplication","softwareVersion":"1.0.2","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"license":"https://opensource.org/licenses/MIT","description":"Native macOS menu bar app that drives Logitech MX Master mice over HID++ 2.0: button remapping, SmartShift, DPI cycling and trackpad-style smooth scrolling."}
+</script>
 <style>
   :root {
-    --bg: #191c20;
-    --text: #e3e6ea;
-    --muted: #99a1ab;
-    --border: #2b3037;
-    --link: #79b0f5;
+    --bg: #060709;
+    --text: #eceef1;
+    --muted: #9aa2ad;
+    --border: rgba(255,255,255,.09);
+    --panel-a: #26242a;
+    --panel-b: #17161b;
+    --accent: #ff9f1c;
+    --link: #cfd6de;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
   body {
     background: var(--bg); color: var(--text);
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
     font-size: 16px; line-height: 1.55;
     -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
   }
-  .wrap { max-width: 780px; margin: 0 auto; padding: 0 22px; }
-  a { color: var(--link); text-decoration: none; }
-  a:hover { text-decoration: underline; }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 0 22px; }
+  a { color: inherit; text-decoration: none; }
 
-  nav { border-bottom: 1px solid var(--border); }
-  .nav-inner { display: flex; align-items: baseline; justify-content: space-between; padding: 16px 0; }
-  .brand { font-weight: 600; color: var(--text); }
-  .brand:hover { text-decoration: none; }
-  code { background: rgba(255,255,255,.07); padding: 2px 6px; border-radius: 5px; }
-  nav .links { font-size: 14px; display: flex; gap: 20px; }
+  /* nav */
+  nav { position: sticky; top: 0; z-index: 20;
+        background: rgba(10,11,14,0.55); backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+        border-bottom: 1px solid var(--border); }
+  .nav-inner { display: flex; align-items: center; justify-content: space-between; height: 56px; }
+  .brand { display: flex; align-items: center; gap: 9px; font-weight: 700; font-size: 15px; letter-spacing: -.01em; }
+  .brand img { width: 24px; height: 24px; border-radius: 6px; }
+  nav .links { display: flex; gap: 22px; font-size: 13.5px; color: var(--muted); }
+  nav .links a:hover { color: var(--text); }
 
-  header { padding: 72px 0 36px; }
-  h1 { font-size: clamp(30px, 4.5vw, 42px); font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; }
-  .sub { color: var(--muted); font-size: 17px; margin: 16px 0 22px; max-width: 640px; }
+  /* hero */
+  header { position: relative; padding: 110px 0 40px; text-align: center; overflow: hidden; }
+  .glow { position: absolute; inset: 0; pointer-events: none;
+          background:
+            radial-gradient(120% 70% at 50% -10%, rgba(58,60,72,.35), transparent 55%),
+            radial-gradient(46% 34% at 50% 38%, rgba(140,142,158,.16), transparent 70%),
+            radial-gradient(320px circle at var(--mx, 50%) var(--my, 24%), rgba(255,159,28,.055), transparent 70%); }
+  header .wrap { position: relative; }
+  .hero-icon { width: 84px; height: 84px; border-radius: 20px; margin-bottom: 28px;
+               box-shadow: 0 18px 50px rgba(0,0,0,.55); }
+  h1 { font-size: clamp(36px, 6vw, 58px); font-weight: 800; letter-spacing: -0.03em; line-height: 1.08; }
+  h1 em { font-style: normal; background: linear-gradient(100deg, #eceef1 30%, #8f96a3 90%);
+          -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+  .sub { color: var(--muted); font-size: 18px; max-width: 600px; margin: 20px auto 32px; }
   .sub b { color: var(--text); font-weight: 500; }
-  .platform { color: var(--muted); font-size: 13.5px; margin-top: 12px; }
+  .btn {
+    display: inline-block; padding: 12px 30px; border-radius: 11px;
+    background: linear-gradient(180deg, #ffffff 0%, rgba(255,255,255,.86) 100%);
+    color: #101216; font-size: 15px; font-weight: 700;
+    transition: transform .16s ease, filter .16s ease;
+  }
+  .btn:hover { transform: translateY(-1px); filter: brightness(.97); }
+  .cta-side { color: var(--muted); font-size: 14.5px; margin-left: 14px; }
+  .cta-side:hover { color: var(--text); }
+  .platform { margin-top: 16px; color: var(--muted); font-size: 13px; }
 
   figure { margin: 0; }
-  figcaption { color: var(--muted); font-size: 13px; margin-top: 8px; }
-  .hero-shot { margin-top: 48px; text-align: center; }
-  .hero-shot img { width: min(430px, 100%); }
-
-  section { padding: 52px 0; border-top: 1px solid var(--border); }
-  h2 { font-size: 21px; font-weight: 700; letter-spacing: -0.015em; margin-bottom: 14px; }
-  .lead { color: var(--muted); margin-bottom: 28px; }
-
-  ul.plain { list-style: none; }
-  ul.plain li { padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 15px; }
-  ul.plain li:last-child { border-bottom: none; }
-  ul.plain b { font-weight: 600; }
-
-  .gallery { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; align-items: start; }
-  .gallery figcaption { text-align: center; }
+  figcaption { color: var(--muted); font-size: 13px; margin-top: 12px; }
   img { width: 100%; height: auto; }
+
+  /* hero shot with halo */
+  .hero-shot { margin-top: 58px; position: relative; }
+  .hero-shot::before { content: ""; position: absolute; inset: -12% -18%;
+      background: radial-gradient(55% 55% at 50% 45%, rgba(130,132,150,.22), rgba(60,62,74,.06) 70%);
+      pointer-events: none; }
+  .hero-shot img { position: relative; width: min(430px, 88%); }
+
+  /* sections */
+  section { position: relative; padding: 78px 0; }
+  section.band { background: linear-gradient(180deg, var(--panel-a), var(--panel-b));
+                 border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+  .kicker { color: var(--accent); font-size: 12px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: .14em; margin-bottom: 10px; }
+  h2 { font-size: clamp(24px, 3.4vw, 32px); font-weight: 750; letter-spacing: -0.02em; }
+  .lead { color: var(--muted); max-width: 580px; margin-top: 10px; }
+  .center { text-align: center; }
+  .center .lead { margin-left: auto; margin-right: auto; }
+
+  /* reveal on scroll */
+  .rv { opacity: 0; transform: translateY(18px); transition: opacity .7s ease, transform .7s ease; }
+  .rv.on { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) { .rv { opacity: 1; transform: none; transition: none; } }
+
+  /* features */
+  .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin-top: 40px; }
+  .card {
+    position: relative;
+    background: rgba(255,255,255,.03);
+    border: 1px solid var(--border); border-radius: 16px; padding: 20px 22px;
+    transition: transform .25s ease;
+    overflow: hidden;
+  }
+  .card::before { content: ""; position: absolute; inset: 0; opacity: 0; transition: opacity .3s ease;
+    background: radial-gradient(140px circle at var(--mx, 50%) var(--my, 50%), rgba(255,255,255,.075), transparent 65%);
+    pointer-events: none; }
+  .card:hover::before { opacity: 1; }
+  .card:hover { transform: translateY(-2px); }
+  .card h3 { font-size: 15px; font-weight: 650; margin-bottom: 4px; }
+  .card p { color: var(--muted); font-size: 14px; }
+
+  /* gallery */
+  .gallery { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+             gap: 22px; align-items: start; margin-top: 44px; }
+  .gallery figure { transition: transform .25s ease; }
+  .gallery figure:hover { transform: translateY(-3px); }
+  .gallery figcaption { text-align: center; }
   img.zoom { cursor: zoom-in; }
-  #lb { position: fixed; inset: 0; background: rgba(8,9,11,.88); display: flex;
+
+  /* slider demo */
+  .demo { max-width: 560px; margin: 40px auto 0; text-align: left;
+          background: rgba(255,255,255,.03); border: 1px solid var(--border);
+          border-radius: 16px; padding: 26px 30px 20px; }
+  .demo .track { position: relative; height: 34px; }
+  .demo .ticks { position: absolute; inset: 0; }
+  .demo .tick { position: absolute; top: 50%; width: 2px; margin-left: -1px; height: 9px;
+                transform: translateY(-50%); background: rgba(255,255,255,.22); border-radius: 1px; }
+  .demo input[type=range] { position: relative; z-index: 2; width: 100%; appearance: none; -webkit-appearance: none;
+        background: transparent; margin: 0; height: 34px; cursor: ew-resize; }
+  .demo input[type=range]::-webkit-slider-runnable-track { height: 4px; border-radius: 2px;
+        background: linear-gradient(90deg, #3a3f47, #4a505a); }
+  .demo input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px;
+        border-radius: 50%; background: linear-gradient(180deg,#fff,#dfe3e8); margin-top: -7px;
+        box-shadow: 0 2px 10px rgba(0,0,0,.6); }
+  .demo input[type=range]::-moz-range-track { height: 4px; border-radius: 2px; background: #3a3f47; }
+  .demo input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border: none; border-radius: 50%;
+        background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,.6); }
+  .readout { display: flex; justify-content: space-between; align-items: baseline; margin-top: 14px; }
+  .readout .name { font-weight: 700; color: var(--accent); font-size: 15px; }
+  .readout .val { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+
+  /* tables */
+  table { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+  th, td { text-align: left; padding: 11px 12px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 500; font-size: 13px; }
+  td:first-child { font-weight: 500; }
+  .tables { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; margin-top: 36px; }
+  @media (max-width: 740px) { .tables { grid-template-columns: 1fr; } }
+
+  /* final CTA */
+  .final { text-align: center; padding: 96px 0; position: relative; overflow: hidden; }
+  .final::before { content: ""; position: absolute; inset: 0; pointer-events: none;
+      background: radial-gradient(50% 65% at 50% 100%, rgba(140,142,158,.14), transparent 70%); }
+  .final .wrap { position: relative; }
+  code { background: rgba(255,255,255,.07); padding: 2px 6px; border-radius: 5px; font-size: .9em; }
+
+  footer { border-top: 1px solid var(--border); padding: 28px 0 46px; color: var(--muted); font-size: 13px; }
+  .foot-inner { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+  footer a:hover { color: var(--text); }
+
+  /* lightbox */
+  #lb { position: fixed; inset: 0; background: rgba(4,5,7,.9); display: flex;
         align-items: center; justify-content: center; z-index: 99; cursor: zoom-out; }
   #lb[hidden] { display: none; }
   #lb img { max-width: min(1400px, 94vw); max-height: 92vh; width: auto; }
-  section { scroll-margin-top: 16px; }
-
-  table { width: 100%; border-collapse: collapse; font-size: 14.5px; }
-  th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--border); }
-  th { color: var(--muted); font-weight: 500; font-size: 13px; }
-  td:first-child { font-weight: 500; }
-  .tables { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
-  @media (max-width: 740px) { .tables { grid-template-columns: 1fr; } }
-
-  footer { border-top: 1px solid var(--border); padding: 24px 0 44px; color: var(--muted); font-size: 13px; }
+  section { scroll-margin-top: 24px; }
 </style>
 </head>
 <body>
 
 <nav>
   <div class="wrap nav-inner">
-    <a class="brand" href="#">RatTamer</a>
+    <a class="brand" href="#"><img src="assets/icone.png" alt=""> RatTamer</a>
     <div class="links">
       <a href="#features">Features</a>
-      <a href="#smooth">Screenshots</a>
+      <a href="#shots">Screenshots</a>
       <a href="#compat">Requirements</a>
-      <a href="https://github.com/gilsonolegario/RaTamer">GitHub</a>
+      <a href="https://github.com/gilsonolegario/RaTamer">GitHub <span id="ghstars"></span></a>
     </div>
   </div>
 </nav>
 
 <header>
+  <div class="glow"></div>
   <div class="wrap">
-    <h1>MX Master control for macOS,<br>without Options+.</h1>
-    <p class="sub">RatTamer speaks <b>HID++ 2.0</b> directly to your Logitech mouse: every button remappable,
-    ratchet / free-spin / SmartShift, DPI cycling, and trackpad-style smooth scrolling.
-    Quit the app and the mouse returns to stock behavior.</p>
-    <p><a href="https://github.com/gilsonolegario/RaTamer/releases">Download v1.0.2</a> &nbsp;&middot;&nbsp;
-       <a href="https://github.com/gilsonolegario/RaTamer">source code</a></p>
-    <p class="platform">macOS 14 or later &middot; universal binary (Apple Silicon and Intel) &middot; MIT license</p>
-    <figure class="hero-shot">
-      <img src="assets/menu-bar.png" alt="RatTamer's menu bar item with its popover open" class="zoom">
-      <figcaption>Status, battery, pointer resolution and the global remapping toggle.</figcaption>
+    <img class="hero-icon" src="assets/icone.png" alt="">
+    <h1>Your MX Master,<br><em>without Options+</em>.</h1>
+    <p class="sub">RatTamer speaks <b>HID++ 2.0</b> directly to your Logitech mouse — every button remappable,
+      ratchet / free-spin / SmartShift, DPI cycling and trackpad-style smooth scrolling.
+      Quit the app and the mouse returns to stock.</p>
+    <a class="btn" href="https://github.com/gilsonolegario/RaTamer/releases">Download v1.0.2</a>
+    <a class="cta-side" href="https://github.com/gilsonolegario/RaTamer">source code ↗</a>
+    <p class="platform">macOS 14+ &middot; universal (Apple Silicon &amp; Intel) &middot; MIT &middot; free</p>
+    <figure class="hero-shot rv">
+      <img src="assets/menu-bar.png" alt="RatTamer's popover open under its menu bar item" class="zoom">
+      <figcaption>One click away: status, battery, pointer resolution and the remapping toggle.</figcaption>
     </figure>
   </div>
 </header>
 
-<section id="features">
+<section id="features" class="band">
   <div class="wrap">
-    <h2>What it does</h2>
-    <ul class="plain">
-      <li><b>Button remapping</b> — keyboard shortcuts, system actions, synthetic clicks, gesture directions or DPI cycling, per button. Left/right swap happens at the device level.</li>
-      <li><b>Wheel modes</b> — ratchet, free-spin, or SmartShift automatic with a sensitivity slider.</li>
-      <li><b>Thumb wheel</b> — separate left and right actions, independent of the main wheel.</li>
-      <li><b>Smooth scrolling</b> — hi-res wheel deltas read over HID++ and re-emitted as continuous pixel scroll. Nine presets from Native to Fluid; the slider snaps onto each preset as you pass it.</li>
-      <li><b>Advanced tuning</b> — momentum decay, glide fraction, feed timing, bounce filter, direction threshold. All parameters exposed and applied live.</li>
-      <li><b>Scroll thermograph</b> — a separate window plotting raw versus smoothed deltas.</li>
-    </ul>
-  </div>
-</section>
-
-<section id="smooth">
-  <div class="wrap">
-    <h2>Screenshots</h2>
-    <p class="lead">Click any window to enlarge.</p>
-    <div class="gallery">
-      <figure>
-        <img src="assets/settings-general.png" alt="Settings window, General tab" class="zoom" loading="lazy">
-        <figcaption>General</figcaption>
-      </figure>
-      <figure>
-        <img src="assets/settings-buttons.png" alt="Settings window, Buttons tab" class="zoom" loading="lazy">
-        <figcaption>Buttons</figcaption>
-      </figure>
-      <figure>
-        <img src="assets/settings-advanced.png" alt="Settings window, Advanced tab" class="zoom" loading="lazy">
-        <figcaption>Advanced</figcaption>
-      </figure>
-      <figure>
-        <img src="assets/settings-about.png" alt="Settings window, About tab" class="zoom" loading="lazy">
-        <figcaption>About</figcaption>
-      </figure>
-      <figure>
-        <img src="assets/rattest.png" alt="RatTest tuning panel" class="zoom" loading="lazy">
-        <figcaption>RatTest — live tuning panel (dev)</figcaption>
-      </figure>
+    <p class="kicker rv">Features</p>
+    <h2 class="rv">Everything the official app does.<br>Minus the account.</h2>
+    <div class="features">
+      <div class="card rv"><h3>Button remapping</h3><p>Keyboard shortcuts, system actions, synthetic clicks, gesture directions or DPI cycling — per button.</p></div>
+      <div class="card rv"><h3>Wheel modes</h3><p>Ratchet, free-spin or SmartShift automatic, with a sensitivity slider.</p></div>
+      <div class="card rv"><h3>Thumb wheel</h3><p>Separate left and right actions, independent of the main wheel.</p></div>
+      <div class="card rv"><h3>Smooth scrolling</h3><p>Hi-res wheel deltas re-emitted as pixel scroll. Nine presets from Native to Fluid; the slider snaps onto each one.</p></div>
+      <div class="card rv"><h3>Advanced tuning</h3><p>Momentum decay, glide fraction, feed timing, bounce filter, direction threshold — all live.</p></div>
+      <div class="card rv"><h3>Scroll thermograph</h3><p>A separate window plotting raw versus smoothed deltas while you scroll.</p></div>
     </div>
   </div>
 </section>
 
-<section id="compat">
+<section id="demo">
+  <div class="wrap center">
+    <p class="kicker rv">Feel it</p>
+    <h2 class="rv">The slider is magnetic</h2>
+    <p class="lead rv">Drag it. Just like in the app, it snaps onto a preset when you pass one — six of them live between 80 and 90, so you stop guessing.</p>
+    <div class="demo rv">
+      <div class="track">
+        <div class="ticks" id="ticks"></div>
+        <input type="range" id="demoRange" min="0" max="100" step="1" value="87" aria-label="Smoothness demo slider">
+      </div>
+      <div class="readout"><span class="name" id="presetName">RaT</span><span class="val" id="presetVal">87 / 100</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="shots">
   <div class="wrap">
-    <h2>Requirements</h2>
-    <p class="lead">A regular app in your Applications folder — no helper daemons, no account.
-    Connect through the Unifying/Bolt receiver for full HID++ support; some mice don't expose HID++ over Bluetooth.
-    Accessibility permission is required to post events.</p>
-    <div class="tables">
+    <p class="kicker rv">Screenshots</p>
+    <h2 class="rv">Click any window to enlarge</h2>
+    <div class="gallery">
+      <figure class="rv"><img src="assets/settings-general.png" alt="Settings window, General tab" class="zoom" loading="lazy"><figcaption>General</figcaption></figure>
+      <figure class="rv"><img src="assets/settings-buttons.png" alt="Settings window, Buttons tab" class="zoom" loading="lazy"><figcaption>Buttons</figcaption></figure>
+      <figure class="rv"><img src="assets/settings-advanced.png" alt="Settings window, Advanced tab" class="zoom" loading="lazy"><figcaption>Advanced</figcaption></figure>
+      <figure class="rv"><img src="assets/settings-about.png" alt="Settings window, About tab" class="zoom" loading="lazy"><figcaption>About</figcaption></figure>
+      <figure class="rv"><img src="assets/rattest.png" alt="RatTest tuning panel" class="zoom" loading="lazy"><figcaption>RatTest — live tuning panel (dev)</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<section id="compat" class="band">
+  <div class="wrap">
+    <p class="kicker rv">Requirements</p>
+    <h2 class="rv">Will it run?</h2>
+    <p class="lead rv">A regular app in your Applications folder — no helper daemons, no account. Accessibility permission is required to post events. Use the Unifying/Bolt receiver for full HID++ support; some mice don't expose HID++ over Bluetooth.</p>
+    <div class="tables rv">
       <table>
         <tr><th>macOS</th><th>Status</th></tr>
         <tr><td>macOS 14 (Sonoma)</td><td>Supported</td></tr>
@@ -173,25 +273,21 @@
   </div>
 </section>
 
-<section id="get">
+<section class="final">
   <div class="wrap">
-    <h2>Getting it</h2>
-    <p class="lead">The release zip contains the universal app — drag to Applications and approve Accessibility when prompted.
-    The build is signed but not notarized, so the first launch needs the macOS approval flow described in the README.
-    Configuration lives in <code style="font-size:14px">~/Library/Application Support/RatTamer/config.json</code>.</p>
-    <p><a href="https://github.com/gilsonolegario/RaTamer/releases">Releases</a> &nbsp;&middot;&nbsp;
-       <a href="https://github.com/gilsonolegario/RaTamer#readme">README</a> &nbsp;&middot;&nbsp;
-       <a href="https://github.com/gilsonolegario/RaTamer/issues">Issues</a></p>
+    <h2 class="rv">Free, and staying that way.</h2>
+    <p class="sub rv" style="margin-bottom:28px">No tiers, no license keys, no telemetry. Configuration lives in
+      <code style="font-size:14px">~/Library/Application Support/RatTamer/config.json</code>.</p>
+    <a class="btn rv" href="https://github.com/gilsonolegario/RaTamer/releases">Download v1.0.2</a>
   </div>
 </section>
 
 <footer>
-  <div class="wrap">
-    MIT-licensed, free of charge. Not affiliated with Logitech. Built with opencode.
+  <div class="wrap foot-inner">
+    <span>MIT license. Not affiliated with Logitech. Built with <a href="https://opencode.ai">opencode</a>.</span>
+    <span><a href="https://github.com/gilsonolegario/RaTamer">GitHub</a> · <a href="https://github.com/gilsonolegario/RaTamer/releases">Releases</a> · <a href="https://github.com/gilsonolegario/RaTamer/issues">Issues</a></span>
   </div>
 </footer>
-
-</body>
 
 <div id="lb" hidden><img alt="screenshot enlarged"></div>
 <script>
@@ -202,5 +298,57 @@
   }));
   lb.addEventListener('click', () => { lb.hidden = true; });
   addEventListener('keydown', e => { if (e.key === 'Escape') lb.hidden = true; });
+
+  const io = new IntersectionObserver(es => es.forEach(en => {
+    if (en.isIntersecting) { en.target.classList.add('on'); io.unobserve(en.target); }
+  }), { threshold: .12 });
+  document.querySelectorAll('.rv').forEach(el => io.observe(el));
+
+  // hero glow follows the pointer
+  const glow = document.querySelector('.glow');
+  if (glow && matchMedia('(pointer:fine)').matches) {
+    addEventListener('pointermove', e => {
+      glow.style.setProperty('--mx', e.clientX + 'px');
+      glow.style.setProperty('--my', e.clientY + 'px');
+    }, { passive: true });
+  }
+
+  // feature cards: light follows the cursor
+  document.querySelectorAll('.card').forEach(c => c.addEventListener('pointermove', e => {
+    const r = c.getBoundingClientRect();
+    c.style.setProperty('--mx', (e.clientX - r.left) + 'px');
+    c.style.setProperty('--my', (e.clientY - r.top) + 'px');
+  }, { passive: true }));
+
+  // smoothness slider demo — same glue as the app (snap within ±2, nearest wins)
+  const PRESETS = [["Native",0],["Smooth",35],["Glide",60],["Mos",80],["Soft",84],["RaT",87],["Warm",89],["Flow",90],["Fluid",100]];
+  const ticks = document.getElementById('ticks'), range = document.getElementById('demoRange'),
+        nameEl = document.getElementById('presetName'), valEl = document.getElementById('presetVal');
+  PRESETS.forEach(([n, lv]) => {
+    const t = document.createElement('span');
+    t.className = 'tick'; t.style.left = lv + '%'; t.title = n;
+    ticks.appendChild(t);
+  });
+  function glued(v) {
+    let best = null, bd = 1e9;
+    for (const [, lv] of PRESETS) { const d = Math.abs(lv - v); if (d < bd) { bd = d; best = lv; } }
+    return bd <= 2 ? best : Math.round(v);
+  }
+  range.addEventListener('input', () => {
+    const v = glued(+range.value);
+    range.value = v;
+    valEl.textContent = Math.round(v) + ' / 100';
+    const hit = PRESETS.find(([, lv]) => lv === v);
+    nameEl.textContent = hit ? hit[0] : 'Custom';
+  });
+
+  // live GitHub stars
+  fetch('https://api.github.com/repos/gilsonolegario/RaTamer').then(r => r.json()).then(d => {
+    if (d && d.stargazers_count != null) {
+      const el = document.getElementById('ghstars');
+      if (el) el.textContent = 'GitHub ★ ' + d.stargazers_count;
+    }
+  }).catch(() => {});
 </script>
+</body>
 </html>
