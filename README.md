@@ -6,7 +6,7 @@ A native macOS menu bar app that replaces Logitech Options+ for the MX Master 3 
 
 ![Swift](https://img.shields.io/badge/Swift-5.9-FA7343?logo=swift&logoColor=white&style=flat)
 ![macOS](https://img.shields.io/badge/macOS-14%2B-000000?logo=apple&logoColor=white&style=flat)
-![Version](https://img.shields.io/badge/version-1.0.0-FF9F1C?style=flat)
+![Version](https://img.shields.io/badge/version-1.0.2-FF9F1C?style=flat)
 
 [![Settings — About tab](screenshots/settings-about.png)](screenshots/settings-about.png)
 
