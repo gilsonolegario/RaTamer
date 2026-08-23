@@ -5,6 +5,7 @@ build/
 .superpowers/
 specs/
 *.png
+!site/**
 !IconGen/**
 docs/*
 !docs/HIDPP.md
