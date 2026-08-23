@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>RatTamer — Your Logitech mouse, untamed. Native macOS, no Options+.</title>
 <meta name="description" content="Free, native macOS menu bar app that replaces Logitech Options+ for MX Master mice. Button remapping, SmartShift, DPI cycling, smooth scrolling and more — no license, no telemetry.">
+<link rel="canonical" href="https://gilsonolegario.github.io/RaTamer/">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://gilsonolegario.github.io/RaTamer/">
+<meta property="og:title" content="RatTamer — Your Logitech mouse, untamed.">
+<meta property="og:description" content="Native macOS menu bar app that replaces Logitech Options+ for MX Master mice. Button remapping, SmartShift, trackpad-style smooth scrolling over HID++. Free, no telemetry.">
+<meta property="og:image" content="https://gilsonolegario.github.io/RaTamer/assets/icone.png">
+<meta name="twitter:card" content="summary">
 <link rel="icon" type="image/png" href="assets/icone.png">
 <style>
   :root {
@@ -152,6 +159,7 @@
     <div class="nav-links">
       <a href="#features">Features</a>
       <a href="#smooth">Smooth scroll</a>
+      <a href="#advanced">Tuning</a>
       <a href="#compat">Compatibility</a>
       <a href="https://github.com/gilsonolegario/RaTamer/releases">Download</a>
     </div>
@@ -169,8 +177,8 @@
     </div>
     <p class="hero-meta">macOS 14+ · Apple Silicon &amp; Intel · free forever</p>
     <figure class="shot">
-      <img src="assets/menu-bar.png" alt="RatTamer menu bar popover showing connection status, battery and pointer resolution">
-      <figcaption>The menu bar popover: connection status, battery, pointer resolution, remapping toggle.</figcaption>
+      <img src="assets/menu-bar.png" alt="RatTamer icon in the macOS menu bar" style="max-width: 420px;">
+      <figcaption>Lives in the menu bar — one click for status, battery, DPI and the remapping toggle.</figcaption>
     </figure>
   </div>
 </header>
@@ -187,6 +195,28 @@
       <div class="card"><h3><span class="icon">↔️</span> Thumb wheel</h3><p>Independent left/right actions for the horizontal thumb wheel, including shortcuts and volume.</p></div>
       <div class="card"><h3><span class="icon">👋</span> Gestures</h3><p>Raw XY movement classified into directions — bind swipe gestures to Spaces, desktops or anything else.</p></div>
       <div class="card"><h3><span class="icon">🏃</span> Run Shortcut</h3><p>Trigger any Apple Shortcut from a mouse button. Launch scripts, apps and workflows without touching the keyboard.</p></div>
+      <div class="card"><h3><span class="icon">📈</span> Scroll Thermograph</h3><p>A live graph of raw vs smoothed wheel deltas in its own window — see exactly what the smoothing does to your flicks.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="advanced">
+  <div class="wrap showcase">
+    <figure style="order: 1;">
+      <img src="assets/settings-advanced.png" alt="RatTamer settings, Advanced tab with momentum, glide, feed and bounce tuning">
+      <figcaption style="color: var(--muted); font-size: 13px; margin-top: 10px;">Every parameter exposed — with a magnetic preset slider that snaps as you pass each preset.</figcaption>
+    </figure>
+    <div style="order: 2;">
+      <p class="kicker">Total control</p>
+      <h2>Tinker until<br>it's yours</h2>
+      <p class="lead">The Advanced panel exposes the whole smoothing engine. Nine presets anchor the curve; drag the smoothness slider and every derived parameter updates live.</p>
+      <ul style="color: var(--muted); font-size: 15px; list-style: none;">
+        <li>◦ Momentum: max boost, decay and stop threshold at 120 Hz</li>
+        <li>◦ Glide: smoothing fraction, glide stop, pixels per notch</li>
+        <li>◦ Feed timing: acceleration window and feed-gap timeout</li>
+        <li>◦ Bounce filter: window, ratio and damping</li>
+        <li>◦ Direction threshold with reversal confirmation</li>
+      </ul>
     </div>
   </div>
 </section>
@@ -210,7 +240,7 @@
   </div>
 </section>
 
-<section id="compat">
+<section id="compat" style="background: var(--bg-soft); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);">
   <div class="wrap">
     <p class="kicker">Requirements</p>
     <h2>Will it run?</h2>
