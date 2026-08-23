@@ -110,7 +110,7 @@ Run `swift run RatTest` for a live tuning panel with all smooth-scroll parameter
 
 ## Configuration
 
-In the **Buttons** tab every divertable button gets an action: Disabled (native), shortcuts (e.g. Cmd+W), system actions (Volume, Mission Control, Show Desktop, Spaces), clicks (Forward/Back), gestures or DPI cycling. The thumb wheel has separate left/right actions, and the SmartShift wheel mode (ratchet, free-spin, auto + sensitivity) is set in the same tab.
+In the **Buttons** tab every divertable button gets an action: Disabled (native), shortcuts (e.g. Cmd+W), system actions (Volume, Mission Control, Show Desktop, Spaces), clicks (Forward/Back), gestures or DPI cycling. The thumb wheel has separate left/right actions. The SmartShift wheel mode (ratchet, free-spin, auto + sensitivity) lives in the **Scrolling** tab, together with scroll direction and smooth-scroll tuning.
 
 The configuration is stored in `~/Library/Application Support/RatTamer/config.json` and applied on connect.
 
