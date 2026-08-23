@@ -55,8 +55,11 @@
   .glow { position: absolute; inset: 0; pointer-events: none;
           background:
             radial-gradient(120% 70% at 50% -10%, rgba(58,60,72,.35), transparent 55%),
-            radial-gradient(46% 34% at 50% 38%, rgba(140,142,158,.16), transparent 70%),
-            radial-gradient(320px circle at var(--mx, 50%) var(--my, 24%), rgba(255,159,28,.055), transparent 70%); }
+            radial-gradient(46% 34% at 50% 38%, rgba(140,142,158,.16), transparent 70%); }
+  /* page-wide light that follows the cursor */
+  #cursor-glow { position: fixed; inset: 0; z-index: 60; pointer-events: none; mix-blend-mode: screen;
+                 background: radial-gradient(480px circle at var(--mx, 50vw) var(--my, 18vh),
+                             rgba(255,190,110,.075), transparent 70%); }
   header .wrap { position: relative; }
   .hero-icon { width: 84px; height: 84px; border-radius: 20px; margin-bottom: 28px;
                box-shadow: 0 18px 50px rgba(0,0,0,.55); }
@@ -99,9 +102,34 @@
   .center .lead { margin-left: auto; margin-right: auto; }
 
   /* reveal on scroll */
-  .rv { opacity: 0; transform: translateY(18px); transition: opacity .7s ease, transform .7s ease; }
+  .rv { opacity: 0; transform: translateY(10px);
+        transition: opacity 1s cubic-bezier(.22,1,.36,1), transform 1s cubic-bezier(.22,1,.36,1); }
   .rv.on { opacity: 1; transform: none; }
   @media (prefers-reduced-motion: reduce) { .rv { opacity: 1; transform: none; transition: none; } }
+
+  /* reading progress */
+  #prog { position: fixed; top: 0; left: 0; height: 2px; width: 0%;
+          background: linear-gradient(90deg, var(--accent), #ffd9a0); z-index: 50; }
+
+  /* hero cascade */
+  @keyframes rise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+  header .rise { opacity: 0; animation: rise 1s cubic-bezier(.22,1,.36,1) forwards; }
+  header .rise.d1 { animation-delay: .08s } header .rise.d2 { animation-delay: .18s }
+  header .rise.d3 { animation-delay: .30s } header .rise.d4 { animation-delay: .44s }
+  header .rise.d5 { animation-delay: .62s }
+  @media (prefers-reduced-motion: reduce) { header .rise { animation: none; opacity: 1; } }
+
+  /* hero popover tilt */
+  .hero-shot { perspective: 1000px; }
+  .hero-shot img { transition: transform .35s cubic-bezier(.22,1,.36,1); will-change: transform;
+                   box-shadow: 0 26px 70px rgba(0,0,0,.55); border-radius: 6px; }
+  @media (prefers-reduced-motion: reduce) { .hero-shot img { transition: none; } }
+
+  /* gallery hover */
+  .gallery figure:hover img { transform: translateY(-4px); }
+  .gallery img { transition: transform .45s cubic-bezier(.22,1,.36,1);
+                 box-shadow: 0 12px 40px rgba(0,0,0,.35); border-radius: 8px; }
+  @media (prefers-reduced-motion: reduce) { .gallery img { transition: none; transform: none !important; } }
 
   /* features */
   .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin-top: 40px; }
@@ -179,6 +207,9 @@
 </head>
 <body>
 
+<div id="prog"></div>
+<div id="cursor-glow"></div>
+
 <nav>
   <div class="wrap nav-inner">
     <a class="brand" href="#"><img src="assets/icone.png" alt=""> RatTamer</a>
@@ -194,15 +225,17 @@
 <header>
   <div class="glow"></div>
   <div class="wrap">
-    <img class="hero-icon" src="assets/icone.png" alt="">
-    <h1>Your MX Master,<br><em>without Options+</em>.</h1>
-    <p class="sub">RatTamer speaks <b>HID++ 2.0</b> directly to your Logitech mouse — every button remappable,
+    <img class="hero-icon rise" src="assets/icone.png" alt="">
+    <h1 class="rise d1">Your MX Master,<br><em>without Options+</em>.</h1>
+    <p class="sub rise d2">RatTamer speaks <b>HID++ 2.0</b> directly to your Logitech mouse — every button remappable,
       ratchet / free-spin / SmartShift, DPI cycling and trackpad-style smooth scrolling.
       Quit the app and the mouse returns to stock.</p>
-    <a class="btn" href="https://github.com/gilsonolegario/RaTamer/releases">Download v1.0.2</a>
-    <a class="cta-side" href="https://github.com/gilsonolegario/RaTamer">source code ↗</a>
-    <p class="platform">macOS 14+ &middot; universal (Apple Silicon &amp; Intel) &middot; MIT &middot; free</p>
-    <figure class="hero-shot rv">
+    <div class="rise d3">
+      <a class="btn" href="https://github.com/gilsonolegario/RaTamer/releases">Download v1.0.2</a>
+      <a class="cta-side" href="https://github.com/gilsonolegario/RaTamer">source code ↗</a>
+    </div>
+    <p class="platform rise d4">macOS 14+ &middot; universal (Apple Silicon &amp; Intel) &middot; MIT &middot; free</p>
+    <figure class="hero-shot rise d5">
       <img src="assets/menu-bar.png" alt="RatTamer's popover open under its menu bar item" class="zoom">
       <figcaption>One click away: status, battery, pointer resolution and the remapping toggle.</figcaption>
     </figure>
@@ -304,8 +337,8 @@
   }), { threshold: .12 });
   document.querySelectorAll('.rv').forEach(el => io.observe(el));
 
-  // hero glow follows the pointer
-  const glow = document.querySelector('.glow');
+  // page-wide light follows the cursor
+  const glow = document.getElementById('cursor-glow');
   if (glow && matchMedia('(pointer:fine)').matches) {
     addEventListener('pointermove', e => {
       glow.style.setProperty('--mx', e.clientX + 'px');
@@ -346,9 +379,31 @@
   fetch('https://api.github.com/repos/gilsonolegario/RaTamer').then(r => r.json()).then(d => {
     if (d && d.stargazers_count != null) {
       const el = document.getElementById('ghstars');
-      if (el) el.textContent = 'GitHub ★ ' + d.stargazers_count;
+      if (el) el.textContent = '★ ' + d.stargazers_count;
     }
   }).catch(() => {});
+
+  // reading progress
+  const prog = document.getElementById('prog');
+  addEventListener('scroll', () => {
+    const max = document.documentElement.scrollHeight - innerHeight;
+    prog.style.width = (max > 0 ? (scrollY / max) * 100 : 0) + '%';
+  }, { passive: true });
+
+  // popover tilts toward the cursor
+  const pop = document.querySelector('.hero-shot img');
+  if (pop && matchMedia('(pointer:fine)').matches && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    document.querySelector('header').addEventListener('pointermove', e => {
+      const r = pop.getBoundingClientRect();
+      const dx = Math.max(-4, Math.min(4, (e.clientX - r.left - r.width / 2) * .02));
+      const dy = Math.max(-4, Math.min(4, -(e.clientY - r.top - r.height / 2) * .02));
+      pop.style.transform = `perspective(1000px) rotateY(${dx}deg) rotateX(${dy}deg)`;
+    }, { passive: true });
+    document.querySelector('header').addEventListener('pointerleave', () => { pop.style.transform = ''; });
+  }
+
+  // stagger gallery reveals
+  document.querySelectorAll('.gallery .rv').forEach((el, i) => el.style.transitionDelay = (i * 70) + 'ms');
 </script>
 </body>
 </html>
