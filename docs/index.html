@@ -12,16 +12,18 @@
 <meta property="og:title" content="RatTamer — MX Master control for macOS, without Options+">
 <meta property="og:description" content="Per-button remapping, SmartShift, DPI cycling and trackpad-style smooth scrolling over HID++. Native menu bar app, MIT licensed.">
 <meta property="og:image" content="https://gilsonolegario.github.io/RaTamer/assets/icone.png">
+<meta name="theme-color" content="#191c20">
 <style>
   :root {
-    --text: #1d1d1f;
-    --muted: #6e6e73;
-    --border: #d9d9de;
-    --link: #0066cc;
+    --bg: #191c20;
+    --text: #e3e6ea;
+    --muted: #99a1ab;
+    --border: #2b3037;
+    --link: #79b0f5;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    background: #fff; color: var(--text);
+    background: var(--bg); color: var(--text);
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
     font-size: 16px; line-height: 1.55;
     -webkit-font-smoothing: antialiased;
@@ -34,6 +36,7 @@
   .nav-inner { display: flex; align-items: baseline; justify-content: space-between; padding: 16px 0; }
   .brand { font-weight: 600; color: var(--text); }
   .brand:hover { text-decoration: none; }
+  code { background: rgba(255,255,255,.07); padding: 2px 6px; border-radius: 5px; }
   nav .links { font-size: 14px; display: flex; gap: 20px; }
 
   header { padding: 72px 0 36px; }
@@ -59,6 +62,12 @@
   .duo { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; align-items: start; }
   @media (max-width: 740px) { .duo { grid-template-columns: 1fr; } }
   img { width: 100%; height: auto; }
+  img.zoom { cursor: zoom-in; }
+  #lb { position: fixed; inset: 0; background: rgba(8,9,11,.88); display: flex;
+        align-items: center; justify-content: center; z-index: 99; cursor: zoom-out; }
+  #lb[hidden] { display: none; }
+  #lb img { max-width: min(1400px, 94vw); max-height: 92vh; width: auto; }
+  section { scroll-margin-top: 16px; }
 
   table { width: 100%; border-collapse: collapse; font-size: 14.5px; }
   th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--border); }
@@ -94,7 +103,7 @@
        <a href="https://github.com/gilsonolegario/RaTamer">source code</a></p>
     <p class="platform">macOS 14 or later &middot; universal binary (Apple Silicon and Intel) &middot; MIT license</p>
     <figure class="hero-shot">
-      <img src="assets/menu-bar.png" alt="RatTamer's menu bar item with its popover open">
+      <img src="assets/menu-bar.png" alt="RatTamer's menu bar item with its popover open" class="zoom">
       <figcaption>Status, battery, pointer resolution and the global remapping toggle.</figcaption>
     </figure>
   </div>
@@ -119,11 +128,11 @@
     <h2>Screenshots</h2>
     <div class="duo">
       <figure>
-        <img src="assets/settings-buttons.png" alt="Settings window, Buttons tab">
+        <img src="assets/settings-buttons.png" alt="Settings window, Buttons tab" class="zoom" loading="lazy">
         <figcaption>Buttons tab: per-button actions and SmartShift.</figcaption>
       </figure>
       <figure>
-        <img src="assets/settings-advanced.png" alt="Settings window, Advanced tab">
+        <img src="assets/settings-advanced.png" alt="Settings window, Advanced tab" class="zoom" loading="lazy">
         <figcaption>Advanced tab: the smoothing parameters.</figcaption>
       </figure>
     </div>
@@ -170,4 +179,15 @@
 </footer>
 
 </body>
+
+<div id="lb" hidden><img alt="screenshot enlarged"></div>
+<script>
+  const lb = document.getElementById('lb');
+  const lbImg = lb.querySelector('img');
+  document.querySelectorAll('img.zoom').forEach(im => im.addEventListener('click', () => {
+    lbImg.src = im.src; lb.hidden = false;
+  }));
+  lb.addEventListener('click', () => { lb.hidden = true; });
+  addEventListener('keydown', e => { if (e.key === 'Escape') lb.hidden = true; });
+</script>
 </html>
