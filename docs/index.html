@@ -379,7 +379,7 @@
   fetch('https://api.github.com/repos/gilsonolegario/RaTamer').then(r => r.json()).then(d => {
     if (d && d.stargazers_count != null) {
       const el = document.getElementById('ghstars');
-      if (el) el.textContent = '★ ' + d.stargazers_count;
+      if (el && d.stargazers_count > 0) el.textContent = '★ ' + d.stargazers_count;
     }
   }).catch(() => {});
 
