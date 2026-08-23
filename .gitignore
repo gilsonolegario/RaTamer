@@ -5,8 +5,10 @@ build/
 .superpowers/
 specs/
 *.png
-!site/**
 !IconGen/**
 docs/*
 !docs/HIDPP.md
 !docs/TECHNICAL.md
+!docs/index.html
+!docs/assets/
+!docs/assets/**
