@@ -1,14 +1,5 @@
 import SwiftUI
 
-/// Reports the natural height of the active pane's content so the window
-/// can resize to hug it.
-struct ContentHeightKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = max(value, nextValue())
-    }
-}
-
 struct SettingsView: View {
     @AppStorage("rattamer.selectedPane") private var selection = "General"
     var onTitleChange: (String) -> Void
@@ -43,10 +34,18 @@ struct SettingsView: View {
                     default: GeneralTabView()
                     }
                 }
-                .background(GeometryReader { geo in
-                    Color.clear.preference(key: ContentHeightKey.self, value: geo.size.height)
-                })
                 .frame(maxWidth: .infinity)
+                // Continuous geometry callback (back-deployed); PreferenceKey
+                // + GeometryReader proved one-shot here: it fired only on the
+                // first layout and never on pane switches.
+                .onGeometryChange(for: CGFloat.self) { proxy in
+                    proxy.size.height
+                } action: { height in
+                    onContentHeight(height)
+                }
+                // Fresh identity per pane: guarantees a new geometry emission
+                // on every switch instead of relying on diffed updates.
+                .id(selection)
             }
         }
         .onAppear {
@@ -63,9 +62,6 @@ struct SettingsView: View {
         .onChange(of: selection) { _, newValue in
             CrashReporter.addBreadcrumb("settings tab: \(newValue)")
             onTitleChange(newValue)
-        }
-        .onPreferenceChange(ContentHeightKey.self) { height in
-            onContentHeight(height)
         }
     }
 }
