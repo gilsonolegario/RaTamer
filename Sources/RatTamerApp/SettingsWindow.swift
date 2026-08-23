@@ -62,9 +62,6 @@ final class SettingsWindow {
         if visible.height > 0 {
             total = min(total, visible.height - 24)
         }
-        // Utility-window ceiling: short panes hug their content, tall ones
-        // (General) scroll a little instead of turning into a giant sheet.
-        total = min(total, 720)
         total = max(total, 340)
         let old = window.frame
         guard abs(old.height - total) > 1 else { return }
