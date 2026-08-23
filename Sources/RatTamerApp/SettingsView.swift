@@ -13,7 +13,7 @@ struct SettingsView: View {
             Picker("", selection: $selection) {
                 Label("General", systemImage: "gearshape").tag("General")
                 Label("Buttons", systemImage: "computermouse").tag("Buttons")
-                Label("Advanced", systemImage: "slider.horizontal.3").tag("Advanced")
+                Label("Scrolling", systemImage: "scroll").tag("Scrolling")
                 Label("About", systemImage: "info.circle").tag("About")
             }
             .pickerStyle(.segmented)
@@ -24,15 +24,23 @@ struct SettingsView: View {
 
             Group {
                 switch selection {
-                case "General": GeneralTabView()
-                case "Advanced": AdvancedTabView()
+                case "Buttons": ButtonsTabView()
+                case "Scrolling": WheelScrollTabView()
                 case "About": AboutTabView()
-                default: ButtonsTabView()
+                default: GeneralTabView()
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
         .frame(minWidth: 700, idealWidth: 780, minHeight: 560, idealHeight: 620)
+        .onAppear {
+            // Pre-1.1 panes ("Advanced") no longer exist; fall back to General
+            // so the segmented picker never shows an empty selection.
+            if !["General", "Buttons", "Scrolling", "About"].contains(selection) {
+                selection = "General"
+            }
+            onTitleChange(selection)
+        }
         .onChange(of: selection) { _, newValue in
             CrashReporter.addBreadcrumb("settings tab: \(newValue)")
             onTitleChange(newValue)

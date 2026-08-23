@@ -9,46 +9,48 @@ struct GeneralTabView: View {
     var body: some View {
         ScrollView {
             Form {
-                Section("Accessibility") {
+                Section {
                     PermissionStatusRow()
+                } header: {
+                    Text("Accessibility")
+                } footer: {
                     Text("RatTamer needs accessibility permission to remap buttons and post keyboard/mouse events.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
                 }
-                Section("Remapping") {
+                Section {
                     Toggle("Enable remapping", isOn: $model.remappingEnabled)
+                } header: {
+                    Text("Remapping")
+                } footer: {
                     Text("When off, buttons fall back to native behavior until re-enabled.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
                 }
-                Section("Terminal Protection") {
+                Section {
                     TerminalProtectionRow()
+                } header: {
+                    Text("Terminal Protection")
+                } footer: {
                     Text("Blocks synthesized keys, clicks and scrolls while a terminal app is focused, so shortcuts and gestures never land as text in tmux. Native mouse behavior is preserved.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
                 }
-                Section("Scrolling") {
-                    ScrollDirectionToggleRow()
-                    SmoothScrollRow()
-                }
-                Section("Pointer Resolution") {
+                Section {
                     DPISliderRow()
                     DPICyclePresetsRow()
+                } header: {
+                    Text("DPI")
+                } footer: {
+                    Text("Sensor resolution. Assign “Cycle DPI” to a button in the Buttons tab to switch presets on the fly.")
                 }
-                Section("Battery") {
-                    BatteryStatusRow()
-                }
-                Section("Login") {
+                Section {
                     Toggle("Start at login", isOn: $loginItem.isEnabled)
+                } header: {
+                    Text("Login")
+                } footer: {
                     Text("Launches RatTamer when you log in so button remapping is always available.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
                 }
-                Section("Dock") {
+                Section {
                     DockIconRow()
+                } header: {
+                    Text("Dock")
+                } footer: {
                     Text("Hides the Dock icon and keeps RatTamer accessible only from the menu bar and popover.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
                 }
             }
             .formStyle(.grouped)
@@ -265,205 +267,3 @@ struct DPICyclePresetsRow: View {
     }
 }
 
-struct ScrollDirectionToggleRow: View {
-    @State private var inverted = false
-    @State private var loaded = false
-    @State private var unavailable = false
-
-    var body: some View {
-        Group {
-            if unavailable {
-                Text("Scroll direction feature unavailable on this device")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            } else {
-                Toggle("Invert scroll direction", isOn: $inverted)
-                    .onChange(of: inverted) { _, _ in
-                        guard loaded else { return }
-                        apply()
-                    }
-            }
-        }
-        .onAppear(perform: load)
-    }
-
-    private func load() {
-        guard let service = AppModel.shared.engine?.hiResWheelService else {
-            unavailable = true
-            return
-        }
-        DispatchQueue.global(qos: .utility).async {
-            let hasInvert = (try? service.getInfo())?.hasInvert == true
-            guard hasInvert else {
-                DispatchQueue.main.async { self.unavailable = true }
-                return
-            }
-            let stored = AppModel.shared.configStore.load().invertScrollDirection
-            let inverted = stored ?? ((try? service.getWheelMode())?.inverted ?? false)
-            DispatchQueue.main.async {
-                self.inverted = inverted
-                self.loaded = true
-            }
-        }
-    }
-
-    private func apply() {
-        var config = AppModel.shared.configStore.load()
-        config.invertScrollDirection = inverted
-        try? AppModel.shared.configStore.save(config)
-        AppModel.shared.engine?.applyConfig()
-    }
-}
-
-struct BatteryStatusRow: View {
-    @State private var info: BatteryInfo?
-
-    var body: some View {
-        Group {
-            if let info {
-                HStack {
-                    Circle()
-                        .fill(color(for: info))
-                        .frame(width: 10, height: 10)
-                    Text(title(for: info))
-                    Spacer()
-                }
-            } else {
-                Text("Battery feature unavailable on this device")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .onAppear(perform: load)
-    }
-
-    private func load() {
-        guard let service = AppModel.shared.engine?.batteryStatusService else { return }
-        DispatchQueue.global(qos: .utility).async {
-            let info = try? service.getBatteryInfo()
-            DispatchQueue.main.async { self.info = info }
-        }
-    }
-
-    private func color(for info: BatteryInfo) -> Color {
-        switch info.state {
-        case .full: return .green
-        default: break
-        }
-        switch info.level {
-        case .full: return .green
-        case .good: return .yellow
-        case .low: return .orange
-        case .critical: return .red
-        case .unknown: return .gray
-        }
-    }
-
-    private func title(for info: BatteryInfo) -> String {
-        BatteryDisplay.title(for: info)
-    }
-}
-
-struct SmoothScrollRow: View {
-    @State private var enabled = false
-    @State private var level: Double?
-    @State private var loaded = false
-    @State private var unavailable = false
-
-    private var displayedLevel: Double {
-        level ?? SmoothnessLevel.defaultValue
-    }
-
-    var body: some View {
-        Group {
-            if unavailable {
-                Text("Smooth scrolling unavailable on this device")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            } else {
-                Toggle("Smooth scrolling", isOn: $enabled)
-                    .onChange(of: enabled) { _, _ in
-                        guard loaded else { return }
-                        apply()
-                    }
-                if enabled {
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack {
-                            Text("Smoothness")
-                            HelpButton(text: HelpTexts.smoothness)
-                            Spacer()
-                            Text(level == nil ? "custom" : "\(Int(displayedLevel))")
-                                .font(.caption.monospaced())
-                                .foregroundStyle(.secondary)
-                        }
-                        PresetSlider(value: Binding(get: { displayedLevel },
-                                                    set: { setLevel($0) }),
-                                     currentLevel: level,
-                                     onSelect: { applyPreset($0) },
-                                     onReset: { resetToDefault() })
-                    }
-                }
-            }
-        }
-        .onAppear(perform: load)
-    }
-
-    @State private var persistTask: Task<Void, Never>?
-
-    private func setLevel(_ newValue: Double) {
-        guard loaded else { return }
-        level = newValue
-        // Live parameter application only. Running the full config here
-        // would redo HID++ setup on every slider tick and stall the wheel.
-        let p = SmoothnessLevel.parameters(level: newValue, multiplier: 8, invert: false)
-        AppModel.shared.engine?.updateSmoothParameters(p)
-        persistTask?.cancel()
-        persistTask = Task { [enabled, level] in
-            try? await Task.sleep(nanoseconds: 300_000_000)
-            guard !Task.isCancelled else { return }
-            var config = AppModel.shared.configStore.load()
-            config.smoothScrollEnabled = enabled
-            config.smoothScrollLevel = level
-            if level != nil {
-                config.smoothScrollAdvanced = nil
-            }
-            try? AppModel.shared.configStore.save(config)
-        }
-    }
-
-    private func applyPreset(_ preset: SmoothnessPreset) {
-        guard loaded else { return }
-        if preset == .native {
-            enabled = false
-        } else {
-            setLevel(preset.level)
-        }
-    }
-
-    private func resetToDefault() {
-        guard loaded else { return }
-        setLevel(SmoothnessLevel.defaultValue)
-    }
-
-    private func apply() {
-        var config = AppModel.shared.configStore.load()
-        config.smoothScrollEnabled = enabled
-        config.smoothScrollLevel = level
-        if level != nil {
-            config.smoothScrollAdvanced = nil
-        }
-        try? AppModel.shared.configStore.save(config)
-        AppModel.shared.engine?.applyConfig()
-    }
-
-    private func load() {
-        guard AppModel.shared.engine?.hiResWheelService != nil else {
-            unavailable = true
-            return
-        }
-        let config = AppModel.shared.configStore.load()
-        enabled = config.smoothScrollEnabled == true
-        level = config.smoothScrollLevel
-        loaded = true
-    }
-}

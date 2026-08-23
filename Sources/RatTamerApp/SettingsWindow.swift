@@ -32,7 +32,7 @@ final class SettingsWindow {
         let hosting = NSHostingController(rootView: view)
         hosting.sizingOptions = []
         let window = SettingsNSWindow(contentViewController: hosting)
-        window.title = "RatTamer — Buttons"
+        window.title = "RatTamer — General"
         window.setContentSize(NSSize(width: 900, height: 760))
         window.contentMinSize = NSSize(width: 720, height: 620)
         window.contentMaxSize = NSSize(width: 1400, height: 1100)

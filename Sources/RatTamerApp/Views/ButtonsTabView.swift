@@ -10,7 +10,6 @@ struct ButtonsTabView: View {
     @State private var shortcutThumbSide: ThumbWheelSide?
     @State private var runShortcutControl: ControlInfo?
     @State private var runShortcutThumbSide: ThumbWheelSide?
-    @State private var smartShiftSensitivity: Double = 16
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -38,7 +37,6 @@ struct ButtonsTabView: View {
             HStack {
                 Button("Reload") {
                     config = AppModel.shared.configStore.load()
-                    smartShiftSensitivity = Double(config.smartShiftSensitivity ?? 16)
                     AppModel.shared.engine?.applyConfig()
                 }
                 .buttonStyle(.bordered)
@@ -49,7 +47,6 @@ struct ButtonsTabView: View {
         .padding()
         .onAppear {
             config = AppModel.shared.configStore.load()
-            smartShiftSensitivity = Double(config.smartShiftSensitivity ?? 16)
         }
         .sheet(item: $shortcutControl) { control in
             ShortcutRecorderView { key, modifiers in
@@ -110,10 +107,7 @@ struct ButtonsTabView: View {
                     .frame(width: 170, alignment: .leading)
                 Spacer()
                 if control.cid == ControlCID.dpiButton {
-                    HStack(spacing: 6) {
-                        smartShiftMenu(for: control)
-                        actionMenu(for: control)
-                    }
+                    actionMenu(for: control)
                 } else if isVirtualGesture {
                     Text("Virtual")
                         .font(.caption)
@@ -133,15 +127,6 @@ struct ButtonsTabView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .padding(.leading, 44)
-            }
-            if let hint = smartShiftHint(for: control) {
-                Text(hint)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .padding(.leading, 44)
-            }
-            if control.cid == ControlCID.dpiButton, config.smartShiftMode == .smartshift {
-                smartShiftSensitivityRow()
             }
             if let hint = virtualGestureHint(for: control) {
                 Text(hint)
@@ -163,11 +148,6 @@ struct ButtonsTabView: View {
         guard control.cid == ControlCID.back || control.cid == ControlCID.forward else { return nil }
         guard (config.action(forCID: control.cid) ?? .disabled) == .disabled else { return nil }
         return "On macOS the native button does not navigate without Logitech Options. Use Back/Forward (⌘[ / ⌘])."
-    }
-
-    private func smartShiftHint(for control: ControlInfo) -> String? {
-        guard control.cid == ControlCID.dpiButton else { return nil }
-        return "Left: scroll wheel mode · Right: remap the button to another function."
     }
 
     private func virtualGestureHint(for control: ControlInfo) -> String? {
@@ -227,124 +207,6 @@ struct ButtonsTabView: View {
 
     private func setSwap(_ value: Bool) {
         config.swapLeftRight = value
-        try? AppModel.shared.configStore.save(config)
-        AppModel.shared.engine?.applyConfig()
-    }
-
-    private func smartShiftMenu(for control: ControlInfo) -> some View {
-        let mode = config.smartShiftMode
-        return Menu {
-            Button {
-                setSmartShiftMode(nil)
-            } label: {
-                Label("Native (default)", systemImage: "arrow.uturn.left.circle")
-                if mode == nil {
-                    Image(systemName: "checkmark")
-                }
-            }
-            Divider()
-            Button {
-                setSmartShiftMode(.freespin)
-            } label: {
-                Label("Free-spin", systemImage: "wind")
-                if mode == .freespin {
-                    Image(systemName: "checkmark")
-                }
-            }
-            Button {
-                setSmartShiftMode(.ratcheted)
-            } label: {
-                Label("Ratcheted", systemImage: "digitalcrown.arrow.clockwise")
-                if mode == .ratcheted {
-                    Image(systemName: "checkmark")
-                }
-            }
-            if model.capabilities.hasSmartShift {
-                Button {
-                    setSmartShiftMode(.smartshift)
-                } label: {
-                    Label("SmartShift (auto)", systemImage: "bolt.badge.automatic")
-                    if mode == .smartshift {
-                        Image(systemName: "checkmark")
-                    }
-                }
-            }
-        } label: {
-            HStack(spacing: 6) {
-                Image(systemName: smartShiftIcon(mode))
-                Text(smartShiftTitle(mode))
-                Image(systemName: "chevron.down")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(RoundedRectangle(cornerRadius: 6).fill(Color.gray.opacity(0.15)))
-        }
-        .menuStyle(.borderlessButton)
-        .fixedSize()
-    }
-
-    private func smartShiftIcon(_ mode: SmartShiftMode?) -> String {
-        switch mode {
-        case .none: return "arrow.uturn.left.circle"
-        case .freespin: return "wind"
-        case .ratcheted: return "digitalcrown.arrow.clockwise"
-        case .smartshift: return "bolt.badge.automatic"
-        }
-    }
-
-    private func smartShiftSensitivityRow() -> some View {
-        HStack(spacing: 8) {
-            Text("Sensitivity")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .frame(width: 100, alignment: .leading)
-            Slider(value: $smartShiftSensitivity, in: 1...100, step: 1) { editing in
-                if !editing {
-                    setSmartShiftSensitivity(Int(smartShiftSensitivity))
-                }
-            }
-            .controlSize(.small)
-            .tint(colorByValue(for: smartShiftSensitivity))
-            .frame(height: 22)
-            Text("\(Int(smartShiftSensitivity))")
-                .font(.caption)
-                .monospacedDigit()
-                .foregroundStyle(.secondary)
-                .frame(width: 30, alignment: .trailing)
-        }
-        .padding(.leading, 44)
-    }
-
-    private func colorByValue(for value: Double) -> Color {
-        switch value {
-        case ..<40: return .green
-        case 40..<70: return .yellow
-        default: return .red
-        }
-    }
-
-    private func setSmartShiftSensitivity(_ value: Int) {
-        config.smartShiftSensitivity = value
-        try? AppModel.shared.configStore.save(config)
-        AppModel.shared.engine?.applyConfig()
-    }
-
-    private func smartShiftTitle(_ mode: SmartShiftMode?) -> String {
-        switch mode {
-        case .none: return "Native"
-        case .freespin: return "Free-spin"
-        case .ratcheted: return "Ratcheted"
-        case .smartshift: return "SmartShift"
-        }
-    }
-
-    private func setSmartShiftMode(_ mode: SmartShiftMode?) {
-        config.smartShiftMode = mode
-        if mode == .smartshift {
-            smartShiftSensitivity = Double(config.smartShiftSensitivity ?? 16)
-        }
         try? AppModel.shared.configStore.save(config)
         AppModel.shared.engine?.applyConfig()
     }
