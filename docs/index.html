@@ -59,8 +59,8 @@
   ul.plain li:last-child { border-bottom: none; }
   ul.plain b { font-weight: 600; }
 
-  .duo { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; align-items: start; }
-  @media (max-width: 740px) { .duo { grid-template-columns: 1fr; } }
+  .gallery { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; align-items: start; }
+  .gallery figcaption { text-align: center; }
   img { width: 100%; height: auto; }
   img.zoom { cursor: zoom-in; }
   #lb { position: fixed; inset: 0; background: rgba(8,9,11,.88); display: flex;
@@ -126,14 +126,27 @@
 <section id="smooth">
   <div class="wrap">
     <h2>Screenshots</h2>
-    <div class="duo">
+    <p class="lead">Click any window to enlarge.</p>
+    <div class="gallery">
+      <figure>
+        <img src="assets/settings-general.png" alt="Settings window, General tab" class="zoom" loading="lazy">
+        <figcaption>General</figcaption>
+      </figure>
       <figure>
         <img src="assets/settings-buttons.png" alt="Settings window, Buttons tab" class="zoom" loading="lazy">
-        <figcaption>Buttons tab: per-button actions and SmartShift.</figcaption>
+        <figcaption>Buttons</figcaption>
       </figure>
       <figure>
         <img src="assets/settings-advanced.png" alt="Settings window, Advanced tab" class="zoom" loading="lazy">
-        <figcaption>Advanced tab: the smoothing parameters.</figcaption>
+        <figcaption>Advanced</figcaption>
+      </figure>
+      <figure>
+        <img src="assets/settings-about.png" alt="Settings window, About tab" class="zoom" loading="lazy">
+        <figcaption>About</figcaption>
+      </figure>
+      <figure>
+        <img src="assets/rattest.png" alt="RatTest tuning panel" class="zoom" loading="lazy">
+        <figcaption>RatTest — live tuning panel (dev)</figcaption>
       </figure>
     </div>
   </div>
