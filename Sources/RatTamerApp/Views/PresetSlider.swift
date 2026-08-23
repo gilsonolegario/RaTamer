@@ -1,9 +1,10 @@
 import SwiftUI
 import RatTamerCore
 
-/// A native smoothness slider matching the other sliders in the app
-/// (`.small`, accent tint, 22pt tall) with a reference strip below showing a
-/// tick bar at each preset level. The active preset's bar is highlighted.
+/// The smoothness control: a native slider matching the other sliders in the
+/// app (`.small`, accent tint, 22pt tall) with a compact native preset menu
+/// below. When the level sits exactly on a preset, that preset is selected in
+/// the menu; any manual drag shows "Custom".
 struct PresetSlider: View {
     @Binding var value: Double
     let currentLevel: Double?
@@ -20,50 +21,30 @@ struct PresetSlider: View {
             .frame(height: 22)
             .frame(maxWidth: .infinity)
 
-            presetReferenceBar
-
-            presetChips
-        }
-    }
-
-    /// Thin reference strip: a tick bar at each preset level, inset by the
-    /// knob radius so the bars line up with the slider track. The active
-    /// preset's bar is taller and accent-tinted.
-    private var presetReferenceBar: some View {
-        GeometryReader { geo in
-            let span = SmoothnessLevel.max - SmoothnessLevel.min
-            ZStack(alignment: .leading) {
-                ForEach(SmoothnessPreset.allCases, id: \.self) { preset in
-                    let x = geo.size.width * (preset.level - SmoothnessLevel.min) / span
-                    Rectangle()
-                        .fill(isActive(preset) ? Color.accentColor : Color.secondary.opacity(0.5))
-                        .frame(width: 3, height: isActive(preset) ? 12 : 8)
-                        .position(x: x, y: geo.size.height / 2)
+            HStack(spacing: 6) {
+                Text("Preset")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Picker("", selection: presetSelection) {
+                    Text("Custom").tag(SmoothnessPreset?.none)
+                    ForEach(SmoothnessPreset.allCases, id: \.self) { preset in
+                        Text(preset.displayName).tag(Optional(preset))
+                    }
                 }
-            }
-        }
-        .frame(height: 12)
-        .padding(.horizontal, 7)
-    }
-
-    private func isActive(_ preset: SmoothnessPreset) -> Bool {
-        currentLevel == preset.level
-    }
-
-    private var presetChips: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 56), spacing: 4)], spacing: 4) {
-            ForEach(SmoothnessPreset.allCases, id: \.self) { preset in
-                presetChip(for: preset)
+                .pickerStyle(.menu)
+                .controlSize(.small)
+                .frame(width: 120, alignment: .leading)
+                Spacer()
             }
         }
     }
 
-    private func presetChip(for preset: SmoothnessPreset) -> some View {
-        let isActive = currentLevel == preset.level
-        return Button(preset.displayName) { onSelect(preset) }
-            .buttonStyle(.bordered)
-            .controlSize(.mini)
-            .tint(isActive ? Color.accentColor : nil)
-            .help(preset.displayName)
+    /// The active preset when `currentLevel` lands exactly on one, otherwise
+    /// nil ("Custom"). Choosing a preset forwards to `onSelect`.
+    private var presetSelection: Binding<SmoothnessPreset?> {
+        Binding(
+            get: { SmoothnessPreset.allCases.first { $0.level == currentLevel } },
+            set: { if let preset = $0 { onSelect(preset) } }
+        )
     }
 }
