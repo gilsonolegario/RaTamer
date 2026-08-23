@@ -13,35 +13,32 @@ struct ButtonsTabView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Buttons").font(.headline)
-            ScrollView {
-                VStack(spacing: 6) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Thumb Wheel")
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                        thumbWheelRow(side: .left)
-                        thumbWheelRow(side: .right)
-                        Text("Actions for horizontal scroll. If the direction feels inverted, swap Left/Right.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .padding(.leading, 44)
-                        Divider().padding(.vertical, 4)
-                    }
-                    ForEach(model.controls, id: \.cid) { control in
-                        row(for: control)
-                    }
-                }
-            }
-            Spacer(minLength: 0)
             HStack {
+                Text("Buttons").font(.headline)
+                Spacer()
                 Button("Reload") {
                     config = AppModel.shared.configStore.load()
                     AppModel.shared.engine?.applyConfig()
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
-                Spacer()
+            }
+            VStack(spacing: 6) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Thumb Wheel")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                    thumbWheelRow(side: .left)
+                    thumbWheelRow(side: .right)
+                    Text("Actions for horizontal scroll. If the direction feels inverted, swap Left/Right.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.leading, 44)
+                    Divider().padding(.vertical, 4)
+                }
+                ForEach(model.controls, id: \.cid) { control in
+                    row(for: control)
+                }
             }
         }
         .padding()

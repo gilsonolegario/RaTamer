@@ -43,14 +43,12 @@ struct WheelScrollTabView: View {
     }
 
     var body: some View {
-        ScrollView {
-            Form {
-                directionSection
-                wheelModeSection
-                smoothScrollingSection
-            }
-            .formStyle(.grouped)
+        Form {
+            directionSection
+            wheelModeSection
+            smoothScrollingSection
         }
+        .formStyle(.grouped)
         .onAppear(perform: load)
     }
 

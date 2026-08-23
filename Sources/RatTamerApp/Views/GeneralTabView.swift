@@ -7,8 +7,7 @@ struct GeneralTabView: View {
     @ObservedObject private var model = AppModel.shared
 
     var body: some View {
-        ScrollView {
-            Form {
+        Form {
                 Section {
                     PermissionStatusRow()
                 } header: {
@@ -54,7 +53,6 @@ struct GeneralTabView: View {
                 }
             }
             .formStyle(.grouped)
-        }
     }
 }
 
