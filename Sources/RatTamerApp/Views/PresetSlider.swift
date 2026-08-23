@@ -21,6 +21,8 @@ struct PresetSlider: View {
             .frame(height: 22)
             .frame(maxWidth: .infinity)
 
+            presetRuler
+
             HStack(spacing: 6) {
                 Text("Preset")
                     .font(.caption)
@@ -37,6 +39,28 @@ struct PresetSlider: View {
                 Spacer()
             }
         }
+    }
+
+    /// Thin position marks for each preset along the slider scale, inset by
+    /// the knob radius so they line up with the track. The active preset's
+    /// mark is taller and accent-tinted; hovering shows the preset name.
+    private var presetRuler: some View {
+        GeometryReader { geo in
+            let span = SmoothnessLevel.max - SmoothnessLevel.min
+            ZStack(alignment: .leading) {
+                ForEach(SmoothnessPreset.allCases, id: \.self) { preset in
+                    let x = geo.size.width * (preset.level - SmoothnessLevel.min) / span
+                    let active = currentLevel == preset.level
+                    Rectangle()
+                        .fill(active ? Color.accentColor : Color.secondary.opacity(0.35))
+                        .frame(width: active ? 2.5 : 1.5, height: active ? 8 : 5)
+                        .position(x: x, y: geo.size.height / 2)
+                        .help(preset.displayName)
+                }
+            }
+        }
+        .frame(height: 8)
+        .padding(.horizontal, 7)
     }
 
     /// Magnetic glue: while dragging, values within ±2 of a preset stick to
