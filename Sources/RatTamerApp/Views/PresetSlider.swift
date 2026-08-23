@@ -14,7 +14,7 @@ struct PresetSlider: View {
         VStack(alignment: .leading, spacing: 6) {
             Slider(value: Binding(
                 get: { value },
-                set: { newValue in value = newValue.rounded() }
+                set: { value = Self.glued($0) }
             ), in: SmoothnessLevel.min...SmoothnessLevel.max, step: 1)
             .controlSize(.small)
             .tint(Color.accentColor)
@@ -37,6 +37,16 @@ struct PresetSlider: View {
                 Spacer()
             }
         }
+    }
+
+    /// Magnetic glue: while dragging, values within ±2 of a preset stick to
+    /// it (nearest wins), so the dense 80–90 preset cluster is easy to hit.
+    static func glued(_ raw: Double) -> Double {
+        let rounded = raw.rounded()
+        let nearest = SmoothnessPreset.allCases
+            .min(by: { abs($0.level - rounded) < abs($1.level - rounded) })
+        guard let nearest, abs(nearest.level - rounded) <= 2 else { return rounded }
+        return nearest.level
     }
 
     /// The active preset when `currentLevel` lands exactly on one, otherwise
