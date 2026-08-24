@@ -45,8 +45,18 @@ final class EngineController {
     private static let throttleLog = RateLimitedLogger(interval: 5.0)
     private static let retryBaseDelay: TimeInterval = 2.0
     private static let retryMaxDelay: TimeInterval = 30.0
+    /// Delay of a wake-driven recovery attempt: the receiver is usually
+    /// re-enumerated right after wake, so probing almost immediately avoids
+    /// waiting out the full backoff.
+    private static let wakeRecoveryDelay: TimeInterval = 0.15
     private var retryAttempt = 0
     private var retryGeneration = 0
+    /// Automatic recovery loop started when the watchdog declares the device
+    /// lost. `recoveryGeneration` is bumped to supersede/cancel any pending
+    /// loop (single-flight); all mutations happen on the main queue.
+    private var recoveryGeneration = 0
+    private var recoveryAttempt = 0
+    private var wakeObserver: NSObjectProtocol?
 
     private func logThrottled(_ message: String) {
         guard Self.throttleLog.shouldLog() else { return }
@@ -117,8 +127,14 @@ final class EngineController {
     }
 
     func start() -> Bool {
+        // Any real start (manual, scheduleRetry or recovery restart)
+        // supersedes any pending automatic recovery attempt.
+        cancelRecovery()
         stopped = false
         ActionEngine.warmKeyCodeCache()
+        // All callers reach start() with session == nil (fresh controller,
+        // previous start failure already closed it in the catch below, or a
+        // stop()/reconnect() ran first), so there is no live session leak.
         do {
             let device = try HIDLocator.openReceiver()
             let session = HIDPPSession(device: device)
@@ -213,6 +229,7 @@ final class EngineController {
             setupWatchdog()
             startLoopThread(monitor: monitor)
             startFrontmostObserver()
+            startWakeObserver()
             isConnected = true
             retryAttempt = 0
             EngineEvents.shared.onConnected?()
@@ -247,7 +264,7 @@ final class EngineController {
         retryAttempt += 1
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
             guard let self, !self.stopped, self.retryGeneration == generation else { return }
-            Self.log.info("retrying connection (attempt \(self.retryAttempt))")
+            Self.log.notice("retrying connection (attempt \(self.retryAttempt))")
             _ = self.start()
         }
     }
@@ -289,8 +306,74 @@ final class EngineController {
         }
     }
 
-    func reconnect() {
+    /// Automatic recovery after the watchdog declares the device lost (e.g.
+    /// the receiver was re-enumerated by the system and the old IOKit handle
+    /// is dead). After a grace period it tries to reopen the device from
+    /// scratch and restart the whole engine; failures retry with exponential
+    /// backoff indefinitely until the device answers or the engine stops.
+    /// Single-flight: at most one loop is pending; `reconnect()` supersedes it.
+    private func beginRecovery(immediate: Bool = false) {
+        recoveryGeneration += 1
+        let generation = recoveryGeneration
+        recoveryAttempt = 0
+        scheduleRecoveryAttempt(generation: generation, immediate: immediate)
+    }
+
+    private func scheduleRecoveryAttempt(generation: Int, immediate: Bool) {
+        // First attempt lands after ~one extra ping interval of grace so an
+        // RF hiccup that the watchdog can still reverse does not race a
+        // reopen; later attempts use the exponential backoff.
+        let delay = immediate
+            ? Self.wakeRecoveryDelay
+            : RetryPolicy.delay(attempt: recoveryAttempt,
+                                base: Self.retryBaseDelay,
+                                maxDelay: Self.retryMaxDelay)
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            guard let self, !self.stopped, self.recoveryGeneration == generation else { return }
+            Self.log.notice("recovery: reopening receiver (attempt \(self.recoveryAttempt + 1))")
+            // HID++ replies arrive as input reports delivered to every open
+            // client, so the stale engine session may swallow the probe's
+            // reply and cause a spurious failure. Accepted: it only costs one
+            // backoff cycle and the loop self-heals.
+            do {
+                let device = try HIDLocator.openReceiver()
+                let probe = HIDPPSession(device: device)
+                defer { probe.close() }
+                guard try probe.ping(deviceIndex: self.deviceIndex) else {
+                    Self.log.notice("recovery: probe ping unanswered")
+                    self.recoveryAttempt += 1
+                    self.scheduleRecoveryAttempt(generation: generation, immediate: false)
+                    return
+                }
+            } catch {
+                Self.log.notice("recovery: reopen failed (\(error, privacy: .public))")
+                self.recoveryAttempt += 1
+                self.scheduleRecoveryAttempt(generation: generation, immediate: false)
+                return
+            }
+            Self.log.notice("recovery: device answering — restarting engine")
+            self.restartEngine()
+        }
+    }
+
+    /// Cancels any pending automatic recovery loop by superseding its
+    /// generation. Called from start(), stop()/reconnect().
+    private func cancelRecovery() {
+        recoveryGeneration += 1
+        recoveryAttempt = 0
+    }
+
+    /// Restarts the engine on a fresh device handle once the probe confirms
+    /// the receiver answers again. The stop() inside supersedes this recovery
+    /// loop and any pending scheduleRetry attempt.
+    private func restartEngine() {
         stop()
+        scheduleEngineRestart()
+    }
+
+    /// Shared tail of manual reconnect and automatic recovery: tears down
+    /// (caller runs stop()), then boots a fresh engine after a short settle.
+    private func scheduleEngineRestart() {
         isConnected = false
         onConnectionState?(.reconnecting)
         onStatus?("Reconnecting…")
@@ -299,13 +382,22 @@ final class EngineController {
         }
     }
 
+    func reconnect() {
+        // A manual reconnect supersedes any pending automatic recovery loop.
+        cancelRecovery()
+        stop()
+        scheduleEngineRestart()
+    }
+
     func stop() {
         stopped = true
         retryGeneration += 1
+        cancelRecovery()
         pingTimer?.cancel()
         pingTimer = nil
         watchdog = nil
         stopFrontmostObserver()
+        stopWakeObserver()
         restoreNativeDiverts()
         restoreSmoothScroll()
         gestureDetector.end()
@@ -436,7 +528,7 @@ final class EngineController {
 
     private func applyScrollInversionIfNeeded(service: HiResWheel) {
         guard let invert = currentConfig().invertScrollDirection else { return }
-        Self.log.info("scroll invert: \(invert)")
+        Self.log.notice("scroll invert: \(invert)")
         do {
             try service.setInverted(invert)
         } catch {
@@ -546,6 +638,30 @@ final class EngineController {
         }
     }
 
+    /// Waking from sleep often re-enumerates the receiver and kills the old
+    /// IOKit handle. If the engine is (or goes) disconnected, skip any pending
+    /// recovery backoff and try to reopen immediately.
+    private func startWakeObserver() {
+        guard wakeObserver == nil else { return }
+        wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            guard let self else { return }
+            guard !self.isConnected else { return }
+            Self.log.notice("wake: disconnected — recovering immediately")
+            self.beginRecovery(immediate: true)
+        }
+    }
+
+    private func stopWakeObserver() {
+        if let observer = wakeObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(observer)
+            wakeObserver = nil
+        }
+    }
+
     private func handleFrontmostAppChanged() {
         let isTerminal = FrontmostAppGuard.isFrontmostTerminal()
         ioQueue.async { [weak self] in
@@ -564,18 +680,28 @@ final class EngineController {
         let watchdog = ConnectionWatchdog(failureThreshold: 3)
         watchdog.onDisconnected = { [weak self] in
             guard let self else { return }
-            Self.log.info("device lost (3 failed pings)")
+            Self.log.notice("device lost (3 failed pings)")
             EngineEvents.shared.onDisconnected?()
             DispatchQueue.main.async { [weak self] in
-                self?.isConnected = false
-                self?.onConnectionState?(.disconnected)
-                self?.onStatus?("Disconnected")
+                guard let self else { return }
+                self.isConnected = false
+                self.onConnectionState?(.disconnected)
+                self.onStatus?("Disconnected")
+                // The IOKit handle may be dead (receiver re-enumerated,
+                // sleep/wake): start the automatic reopen-restart loop. If
+                // the old handle revives first, onReconnected cancels it.
+                self.beginRecovery()
             }
         }
         watchdog.onReconnected = { [weak self] in
             guard let self else { return }
-            Self.log.info("device back (ping answered)")
+            Self.log.notice("device back (ping answered)")
             EngineEvents.shared.onConnected?()
+            DispatchQueue.main.async { [weak self] in
+                // Same handle recovered (RF hiccup): drop any pending
+                // automatic recovery loop and just reapply the config.
+                self?.cancelRecovery()
+            }
             self.ioQueue.async { [weak self] in
                 guard let self, let controlsService = self.controlsService, !self.stopped else { return }
                 self.applyAll(controlsService: controlsService)

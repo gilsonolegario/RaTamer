@@ -207,16 +207,22 @@ final class ScrollSmootherTests: XCTestCase {
         XCTAssertEqual(fast, 10, accuracy: 0.0001)
     }
 
-    func testNativeBypassIgnoresInvert() {
-        let s = make(invert: true)
-        XCTAssertEqual(feed(s, at: 1000), 10, accuracy: 0.0001)
-    }
-
     func testNativeBypassSkipsBounceDamping() {
         let s = make()
         _ = feed(s, at: 1000)
         let reverse = feed(s, deltaV: -3, at: 1000.01)
         XCTAssertEqual(reverse, -2.0, accuracy: 0.0001)
+    }
+
+    /// Regression: Native preset (momentum + smoothing off) must still honor
+    /// the configured scroll inversion — previously the pass-through branch
+    /// returned the raw pixels and silently ignored `invert`.
+    func testNativePassThroughAppliesInvertWhenMomentumAndSmoothingOff() {
+        let s = ScrollSmoother(parameters: .init(multiplier: 15,
+                                                 momentumEnabled: false,
+                                                 invert: true,
+                                                 smoothingEnabled: false))
+        XCTAssertEqual(feed(s, at: 1000), -10, accuracy: 0.0001)
     }
 
     func testNativeBypassDoesNotSeedMomentum() {

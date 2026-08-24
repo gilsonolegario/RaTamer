@@ -126,14 +126,14 @@ public final class ScrollSmoother {
 
     /// Converts a wheel movement to pixels. When both momentum and smoothing
     /// are disabled (Native), the pixels are passed through untouched — no
-    /// boost, no bounce stabilization, no invert. Otherwise applies the
-    /// detent-bounce stabilization, seeds momentum, and returns the pixels to
-    /// post now.
+    /// boost, no bounce stabilization — but the configured invert is still
+    /// applied (software-side direction). Otherwise applies the detent-bounce
+    /// stabilization, seeds momentum, and returns the pixels to post now.
     @discardableResult
     public func feed(_ movement: WheelMovement, at now: Date) -> Double {
         let raw = rawPixels(for: movement)
         if !parameters.momentumEnabled && !parameters.smoothingEnabled {
-            return raw
+            return applyInvert(raw)
         }
         let (stabilizedPixels, isBounce, reversed, accepted) = stabilized(raw, at: now)
         var pixels = stabilizedPixels
