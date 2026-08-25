@@ -2,8 +2,8 @@ import AppKit
 import RaTamerCore
 import SwiftUI
 
-struct RatTestView: View {
-    let engine: RatTestEngine
+struct RaTestView: View {
+    let engine: RaTestEngine
     @State private var config: Config
     @State private var status = ""
     @State private var controls: [ControlInfo] = []
@@ -27,7 +27,7 @@ struct RatTestView: View {
     @State private var syncedLevel: Double?
     @State private var thumbWheelLog: [String] = []
 
-    init(engine: RatTestEngine) {
+    init(engine: RaTestEngine) {
         self.engine = engine
         _config = State(initialValue: engine.configStore.load())
     }

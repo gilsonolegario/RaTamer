@@ -3,7 +3,7 @@ import CoreGraphics
 import Foundation
 import RaTamerCore
 
-final class RatTestEngine {
+final class RaTestEngine {
     let configStore: ConfigStore
     private let actionEngine = ActionEngine(poster: CGEventPoster())
     private var session: HIDPPSession?
@@ -194,7 +194,7 @@ final class RatTestEngine {
                 }
             }
         }
-        thread.name = "RatTest.ButtonLoop"
+        thread.name = "RaTest.ButtonLoop"
         thread.start()
         loopThread = thread
     }

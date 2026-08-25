@@ -7,7 +7,7 @@ let package = Package(
     products: [
         .executable(name: "RaTamer", targets: ["RaTamerApp"]),
         .executable(name: "RatDiagnose", targets: ["RatDiagnose"]),
-        .executable(name: "RatTest", targets: ["RatTest"]),
+        .executable(name: "RaTest", targets: ["RaTest"]),
         .executable(name: "IconGen", targets: ["IconGen"])
     ],
     targets: [
@@ -29,7 +29,7 @@ let package = Package(
             dependencies: ["RaTamerCore"]
         ),
         .executableTarget(
-            name: "RatTest",
+            name: "RaTest",
             dependencies: ["RaTamerCore"]
         ),
         .executableTarget(

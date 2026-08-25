@@ -3,16 +3,16 @@ import RaTamerCore
 import SwiftUI
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    private var engine: RatTestEngine?
+    private var engine: RaTestEngine?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        let engine = RatTestEngine(configStore: ConfigStore(fileURL: ConfigStore.defaultFileURL()))
+        let engine = RaTestEngine(configStore: ConfigStore(fileURL: ConfigStore.defaultFileURL()))
         self.engine = engine
 
-        let hosting = NSHostingController(rootView: RatTestView(engine: engine))
+        let hosting = NSHostingController(rootView: RaTestView(engine: engine))
         hosting.sizingOptions = [.preferredContentSize]
         let window = NSWindow(contentViewController: hosting)
-        window.title = "RatTest — Button Tester"
+        window.title = "RaTest — Button Tester"
         window.setContentSize(NSSize(width: 660, height: 1200))
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
         window.contentMinSize = NSSize(width: 660, height: 700)
