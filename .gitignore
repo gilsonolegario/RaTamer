@@ -12,3 +12,6 @@ docs/*
 !docs/index.html
 !docs/assets/
 !docs/assets/**
+
+# Instruções de agente locais — material interno, não publicar
+/AGENTS.md
