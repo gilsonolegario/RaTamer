@@ -1,6 +1,6 @@
 # Advanced: the HID++ protocol
 
-RatTamer talks to the MX Master 2S through the Unifying receiver using HID++ 2.0 — the same protocol Logitech's own software speaks. Everything below is implemented in `Sources/RatTamerCore/HIDPP/`.
+RaTamer talks to the MX Master 2S through the Unifying receiver using HID++ 2.0 — the same protocol Logitech's own software speaks. Everything below is implemented in `Sources/RaTamerCore/HIDPP/`.
 
 ## Framing
 

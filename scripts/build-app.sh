@@ -2,7 +2,7 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
-SCRATCH="${RATTAMER_SCRATCH:-$TMPDIR/rattamer-build}"
+SCRATCH="${RATAMER_SCRATCH:-$TMPDIR/ratamer-build}"
 ICON_SRC="${ICON_SRC:-$ROOT/screenshots/icone.png}"
 
 # ======================================================================
@@ -34,27 +34,27 @@ fi
 ARCHS=(--arch arm64 --arch x86_64)
 
 echo "==> Building universal binary (arm64 + x86_64)..."
-swift build -c release --product RatTamer --scratch-path "$SCRATCH" "${ARCHS[@]}"
-BIN_DIR="$(swift build -c release --product RatTamer --scratch-path "$SCRATCH" "${ARCHS[@]}" --show-bin-path)"
-BIN="$BIN_DIR/RatTamer"
+swift build -c release --product RaTamer --scratch-path "$SCRATCH" "${ARCHS[@]}"
+BIN_DIR="$(swift build -c release --product RaTamer --scratch-path "$SCRATCH" "${ARCHS[@]}" --show-bin-path)"
+BIN="$BIN_DIR/RaTamer"
 
 echo "==> Generating icon..."
 swift run IconGen "$ROOT/build/icon" "$ICON_SRC"
 
-APP="$ROOT/build/RatTamer.app"
+APP="$ROOT/build/RaTamer.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp "$BIN" "$APP/Contents/MacOS/RatTamer"
-cp "$ROOT/build/icon/RatTamer.icns" "$APP/Contents/Resources/RatTamer.icns"
+cp "$BIN" "$APP/Contents/MacOS/RaTamer"
+cp "$ROOT/build/icon/RaTamer.icns" "$APP/Contents/Resources/RaTamer.icns"
 cat > "$APP/Contents/Info.plist" <<'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CFBundleName</key><string>RatTamer</string>
+    <key>CFBundleName</key><string>RaTamer</string>
     <key>CFBundleIdentifier</key><string>com.rattamer</string>
-    <key>CFBundleExecutable</key><string>RatTamer</string>
-    <key>CFBundleIconFile</key><string>RatTamer</string>
+    <key>CFBundleExecutable</key><string>RaTamer</string>
+    <key>CFBundleIconFile</key><string>RaTamer</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleShortVersionString</key><string>1.0.2</string>
     <key>CFBundleVersion</key><string>5</string>
@@ -62,7 +62,7 @@ cat > "$APP/Contents/Info.plist" <<'EOF'
 </dict>
 </plist>
 EOF
-chmod +x "$APP/Contents/MacOS/RatTamer"
+chmod +x "$APP/Contents/MacOS/RaTamer"
 
 # ======================================================================
 # SIGNING: use the stable local identity when available so the cdhash
@@ -83,5 +83,5 @@ fi
 codesign --force --sign "$CODESIGN_IDENTITY" "$APP"
 
 echo "==> Architectures:"
-lipo -info "$APP/Contents/MacOS/RatTamer"
+lipo -info "$APP/Contents/MacOS/RaTamer"
 echo "Built and signed $APP (identity: $CODESIGN_IDENTITY)"

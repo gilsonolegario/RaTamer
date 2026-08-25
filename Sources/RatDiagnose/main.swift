@@ -1,5 +1,5 @@
 import Foundation
-import RatTamerCore
+import RaTamerCore
 
 extension Array {
     subscript(safe index: Int) -> Element? {

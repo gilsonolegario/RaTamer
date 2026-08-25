@@ -115,7 +115,7 @@ extension NSColor {
 let arguments = CommandLine.arguments
 let baseDir = URL(fileURLWithPath: arguments.dropFirst().first ?? "build/icon")
 let sourcePath = arguments.dropFirst().dropFirst().first
-let iconsetDir = baseDir.appendingPathComponent("RatTamer.iconset")
+let iconsetDir = baseDir.appendingPathComponent("RaTamer.iconset")
 try? FileManager.default.removeItem(at: iconsetDir)
 try? FileManager.default.createDirectory(at: iconsetDir, withIntermediateDirectories: true)
 
@@ -196,4 +196,4 @@ guard process.terminationStatus == 0 else {
     fputs("iconutil failed with status \(process.terminationStatus)\n", stderr)
     exit(1)
 }
-print("wrote \(baseDir.appendingPathComponent("RatTamer.icns").path)")
+print("wrote \(baseDir.appendingPathComponent("RaTamer.icns").path)")

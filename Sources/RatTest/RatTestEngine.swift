@@ -1,7 +1,7 @@
 import ApplicationServices
 import CoreGraphics
 import Foundation
-import RatTamerCore
+import RaTamerCore
 
 final class RatTestEngine {
     let configStore: ConfigStore

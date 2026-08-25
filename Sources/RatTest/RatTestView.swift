@@ -1,5 +1,5 @@
 import AppKit
-import RatTamerCore
+import RaTamerCore
 import SwiftUI
 
 struct RatTestView: View {

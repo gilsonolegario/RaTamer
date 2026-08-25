@@ -5,7 +5,7 @@ cd "$ROOT"
 
 VERSION="${1:-}"
 if [ -z "$VERSION" ]; then
-    VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' build/RatTamer.app/Contents/Info.plist 2>/dev/null || echo "")"
+    VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' build/RaTamer.app/Contents/Info.plist 2>/dev/null || echo "")"
 fi
 if [ -z "$VERSION" ]; then
     echo "No version given and no previous build found. Run ./scripts/build-app.sh first or pass a version:"
@@ -22,9 +22,9 @@ echo "==> Building app (assinado com identidade local estável)..."
 ./scripts/build-app.sh
 
 echo "==> Creating zip..."
-ZIP="$ROOT/build/RatTamer-$VERSION.zip"
+ZIP="$ROOT/build/RaTamer-$VERSION.zip"
 rm -f "$ZIP"
-ditto -c -k --keepParent build/RatTamer.app "$ZIP"
+ditto -c -k --keepParent build/RaTamer.app "$ZIP"
 echo "    $ZIP"
 
 if ! gh auth status &>/dev/null; then
@@ -41,7 +41,7 @@ if gh release view "$TAG" --repo gilsonolegario/RaTamer &>/dev/null; then
 else
     gh release create "$TAG" "$ZIP" \
         --repo gilsonolegario/RaTamer \
-        --title "RatTamer $VERSION" \
+        --title "RaTamer $VERSION" \
         --notes "Pre-built app bundle (ad-hoc signed, **not notarized**). See the README 'First launch (macOS 15+)' section for how to open it on macOS 15+." \
         $DRAFT
 fi

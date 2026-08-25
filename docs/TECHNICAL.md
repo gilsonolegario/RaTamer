@@ -1,4 +1,4 @@
-# RatTamer — Technical details
+# RaTamer — Technical details
 
 Developer-oriented notes: how the app works internally, the configuration schema, the developer tools and the build/distribution specifics. The byte-level HID++ protocol lives in [docs/HIDPP.md](docs/HIDPP.md).
 
@@ -8,9 +8,9 @@ Three layers, in `Sources/`:
 
 | Layer | Path | Responsibility |
 |---|---|---|
-| **HIDPP** | `RatTamerCore/HIDPP/` | talks to the Unifying receiver: framing, feature discovery, `ReprogrammableControls`, DPI, battery, HiRes wheel, SmartShift |
-| **Core** | `RatTamerCore/Core/` | remapping logic, gesture classification, throttling, watchdog, config persistence |
-| **App** | `RatTamerApp/` | SwiftUI shell: menu bar popover, settings window, onboarding, engine controller |
+| **HIDPP** | `RaTamerCore/HIDPP/` | talks to the Unifying receiver: framing, feature discovery, `ReprogrammableControls`, DPI, battery, HiRes wheel, SmartShift |
+| **Core** | `RaTamerCore/Core/` | remapping logic, gesture classification, throttling, watchdog, config persistence |
+| **App** | `RaTamerApp/` | SwiftUI shell: menu bar popover, settings window, onboarding, engine controller |
 
 The data flow is `HIDPP → Core → App` — see the diagram at the end of [docs/HIDPP.md](docs/HIDPP.md).
 
@@ -60,7 +60,7 @@ Stored in `~/Library/Application Support/RatTamer/config.json` (schema v2), appl
 swift run RatTest
 ```
 
-Close `RatTamer` first — only one process can receive the divert events.
+Close `RaTamer` first — only one process can receive the divert events.
 
 **RatDiagnose** — inspects the protocol:
 
@@ -81,8 +81,8 @@ swift run RatDiagnose --divert 10     # diverts everything for 10s and prints PR
 ```bash
 swift build            # compile
 swift test             # test suite (194 tests)
-./scripts/build-app.sh # app bundle at build/RatTamer.app
-swift run IconGen      # regenerate the app icon (build/icon/RatTamer.icns)
+./scripts/build-app.sh # app bundle at build/RaTamer.app
+swift run IconGen      # regenerate the app icon (build/icon/RaTamer.icns)
 ```
 
 ### Dependencies
@@ -93,25 +93,25 @@ None — SwiftPM-only. The app links only Apple system frameworks (IOKit, CoreGr
 
 The app is **not notarized** — notarization requires a paid Apple Developer account — so macOS may block a downloaded copy.
 
-1. **Local build (recommended).** `./scripts/build-app.sh` produces `build/RatTamer.app`, ad-hoc signed (`codesign -s -`, no identity). Files built locally never receive `com.apple.quarantine`, so Gatekeeper stays out of the way. "Start at login" works via `SMAppService`.
+1. **Local build (recommended).** `./scripts/build-app.sh` produces `build/RaTamer.app`, ad-hoc signed (`codesign -s -`, no identity). Files built locally never receive `com.apple.quarantine`, so Gatekeeper stays out of the way. "Start at login" works via `SMAppService`.
 2. **GitHub Release (convenience).** The ad-hoc signed app is published as a zip. A browser download sets the quarantine attribute, so remove it once:
 
    ```bash
-   xattr -dr com.apple.quarantine RatTamer.app
+   xattr -dr com.apple.quarantine RaTamer.app
    ```
 
    or right-click → Open → Open Anyway in Gatekeeper.
 
 ## References
 
-RatTamer was built by studying the projects below — reversing the HID++ wire format, porting system-action triggers, and learning how existing tools work around macOS limitations. The research notes behind each one are in `specs/` (not tracked).
+RaTamer was built by studying the projects below — reversing the HID++ wire format, porting system-action triggers, and learning how existing tools work around macOS limitations. The research notes behind each one are in `specs/` (not tracked).
 
 **HID++ protocol**
 - Logitech HID++ 2.0 specification and the community reverse-engineering work (receiver framing, `0x1B04` ReprogrammableControls, `0x1000` Battery, `0x2201` DPI) — see [docs/HIDPP.md](docs/HIDPP.md) for the wire details.
 - The byte-level gotchas were validated on hardware (macOS 15, Apple Silicon): `IOHIDManager` never enumerates the Unifying receiver, writes must use `kIOHIDReportTypeOutput`, cold-start RF can take > 0.5s.
 
 **Mouse remapping / system actions**
-- [mrmouse](https://github.com/zackbart/mrmouse) — same idea as RatTamer (MX Master remapping in Swift); its system-action mapping informed the `ActionEngine`.
+- [mrmouse](https://github.com/zackbart/mrmouse) — same idea as RaTamer (MX Master remapping in Swift); its system-action mapping informed the `ActionEngine`.
 - [Mac Mouse Fix](https://github.com/noah-nuebling/mac-mouse-fix) (MIT) — reference for `TouchSimulator.m` (dock-swipe gestures) and `SymbolicHotKeys.m` (system action hijacking).
 - [input-leap](https://github.com/input-leap/input-leap) (GPL-2.0) — reference only: confirms keycodes 160 (Mission Control) and 131 (Launchpad) via `IOHIDPostEvent`.
 - [dockswipe](https://github.com/oomol-lab/dockswipe) (MIT) — CLI that synthesizes dock-swipe gestures; explored as a trigger for App Exposé / Show Desktop, superseded by the System Events key-code approach used today (`ActionEngine.systemKey`).
@@ -120,4 +120,4 @@ RatTamer was built by studying the projects below — reversing the HID++ wire f
 - [zenangst/Dock](https://github.com/zenangst/Dock) (MIT) — `CoreDockSendNotification` wrapper; **does not work** on macOS 15 (symbol gone).
 
 **Audio / HDMI volume — researched, not implemented**
-- A SoundSource-style virtual HAL driver (software volume for HDMI outputs that expose no volume control) was researched but **not built**. Volume actions in RatTamer use AppleScript (`set volume output volume`) instead. Candidates studied: [proxy-audio-device](https://github.com/briankendall/proxy-audio-device) (Unlicense, the recommended path), [libASPL](https://github.com/gavv/libASPL) (MIT), [BlackHole](https://github.com/ExistentialAudio/BlackHole) (GPL-3.0, loopback-only — not usable here) and [eqMac](https://github.com/bitgapp/eqMac) (Apache-2.0).
+- A SoundSource-style virtual HAL driver (software volume for HDMI outputs that expose no volume control) was researched but **not built**. Volume actions in RaTamer use AppleScript (`set volume output volume`) instead. Candidates studied: [proxy-audio-device](https://github.com/briankendall/proxy-audio-device) (Unlicense, the recommended path), [libASPL](https://github.com/gavv/libASPL) (MIT), [BlackHole](https://github.com/ExistentialAudio/BlackHole) (GPL-3.0, loopback-only — not usable here) and [eqMac](https://github.com/bitgapp/eqMac) (Apache-2.0).

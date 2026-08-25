@@ -1,6 +1,6 @@
 <img src="screenshots/icone.png" alt="App icon" width="128">
 
-# RatTamer
+# RaTamer
 
 A native macOS menu bar app that replaces Logitech Options+ for the MX Master 3 and MX Master 2S — tested on those models and designed to adapt to other HID++ Logitech devices (MX Master 3S, MX Anywhere, MX Vertical). It captures the mouse buttons over HID++ 2.0 and runs your own shortcut, system action or click for each one — no Logitech software required, native behavior restored on quit.
 
@@ -17,13 +17,13 @@ A native macOS menu bar app that replaces Logitech Options+ for the MX Master 3 
 Grab the latest pre-built app from the [Releases page](https://github.com/gilsonolegario/RaTamer/releases) — or build it locally:
 
 ```bash
-./scripts/build-app.sh    # universal binary (arm64 + x86_64) → build/RatTamer.app
+./scripts/build-app.sh    # universal binary (arm64 + x86_64) → build/RaTamer.app
 ```
 
 or run straight from the source tree:
 
 ```bash
-swift run RatTamer        # development mode, no app bundle
+swift run RaTamer        # development mode, no app bundle
 ```
 
 Releases are published with `./scripts/release.sh [VERSION] [draft]` — it builds the bundle, zips it and uploads it to the GitHub Release via `gh`. See [First launch (macOS 15+)](#first-launch-macos-15) for how to open the pre-built download the first time.
@@ -34,17 +34,17 @@ The release download is **not notarized** — notarization requires a paid Apple
 Developer account — so macOS blocks the first launch. Since macOS 15 (Sequoia)
 the old right-click → Open bypass is **gone**, so use this flow instead:
 
-1. Double-click `RatTamer.app` → the dialog says it can't be opened → click **Done**.
+1. Double-click `RaTamer.app` → the dialog says it can't be opened → click **Done**.
 2. Open **System Settings → Privacy & Security → Security** (scroll to the bottom).
-3. Under "Allow applications from", find *"RatTamer was blocked to protect your Mac"* → click **Open Anyway** → confirm with your password.
-4. Launch RatTamer normally from now on.
+3. Under "Allow applications from", find *"RaTamer was blocked to protect your Mac"* → click **Open Anyway** → confirm with your password.
+4. Launch RaTamer normally from now on.
 
 > **Tip:** `Open Anyway` only appears for ~1 hour after the blocked launch. If you don't see it, double-click the app once more and go straight back to System Settings.
 >
 > **Troubleshooting:** if macOS claims the app is "damaged", remove the quarantine attribute once:
 >
 > ```bash
-> xattr -dr com.apple.quarantine /Applications/RatTamer.app
+> xattr -dr com.apple.quarantine /Applications/RaTamer.app
 > ```
 
 **Prefer to skip all of this?** Build locally — a `swift build` output never receives the quarantine attribute, so Gatekeeper stays out of the way (requires only the Xcode Command Line Tools).
@@ -71,7 +71,7 @@ slider (0–100) lives in Settings → General with nine presets — Native (0),
 Fluid (100). Settings → **Advanced** adds full tuning of the momentum, glide, feed
 and bounce parameters — all free.
 
-> Do not run RatTamer together with Logitech Options+, BetterMouse or similar mouse-config tools: they reprogram the same HID++ features and will fight over wheel mode.
+> Do not run RaTamer together with Logitech Options+, BetterMouse or similar mouse-config tools: they reprogram the same HID++ features and will fight over wheel mode.
 
 ### Tuning
 
@@ -85,9 +85,9 @@ Run `swift run RatTest` for a live tuning panel with all smooth-scroll parameter
 
 ## How to install and use the app
 
-1. Build the app: `./scripts/build-app.sh` (or `swift run RatTamer` for development).
-2. Copy `build/RatTamer.app` to your Applications folder.
-3. Open RatTamer — the first run shows a short onboarding. If macOS blocks it, follow [First launch (macOS 15+)](#first-launch-macos-15).
+1. Build the app: `./scripts/build-app.sh` (or `swift run RaTamer` for development).
+2. Copy `build/RaTamer.app` to your Applications folder.
+3. Open RaTamer — the first run shows a short onboarding. If macOS blocks it, follow [First launch (macOS 15+)](#first-launch-macos-15).
 4. Grant **Accessibility** in System Settings → Privacy & Security as prompted (required to post shortcuts and clicks).
 5. Click the mouse icon in the menu bar to open the popover: connection status, battery, pointer resolution and a remapping toggle.
 6. Open **Settings…** to configure buttons, thumb wheel, SmartShift, DPI presets, login item and the Dock icon option.
@@ -116,7 +116,7 @@ The configuration is stored in `~/Library/Application Support/RatTamer/config.js
 
 ## Pricing
 
-RatTamer is free and always will be. Every feature is included — button remapping,
+RaTamer is free and always will be. Every feature is included — button remapping,
 gestures, SmartShift, Run Shortcut, thumb wheel, DPI cycling, smooth scrolling with
 full advanced tuning. No license keys, no accounts, no telemetry.
 
@@ -145,7 +145,7 @@ gestures.
 
 ## License
 
-RatTamer is released under the [MIT License](LICENSE).
+RaTamer is released under the [MIT License](LICENSE).
 
 ---
 

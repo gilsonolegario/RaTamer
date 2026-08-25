@@ -2,17 +2,17 @@
 import PackageDescription
 
 let package = Package(
-    name: "RatTamer",
+    name: "RaTamer",
     platforms: [.macOS(.v14)],
     products: [
-        .executable(name: "RatTamer", targets: ["RatTamerApp"]),
+        .executable(name: "RaTamer", targets: ["RaTamerApp"]),
         .executable(name: "RatDiagnose", targets: ["RatDiagnose"]),
         .executable(name: "RatTest", targets: ["RatTest"]),
         .executable(name: "IconGen", targets: ["IconGen"])
     ],
     targets: [
         .target(
-            name: "RatTamerCore",
+            name: "RaTamerCore",
             linkerSettings: [
                 .linkedFramework("IOKit"),
                 .linkedFramework("CoreGraphics"),
@@ -21,24 +21,24 @@ let package = Package(
             ]
         ),
         .executableTarget(
-            name: "RatTamerApp",
-            dependencies: ["RatTamerCore"]
+            name: "RaTamerApp",
+            dependencies: ["RaTamerCore"]
         ),
         .executableTarget(
             name: "RatDiagnose",
-            dependencies: ["RatTamerCore"]
+            dependencies: ["RaTamerCore"]
         ),
         .executableTarget(
             name: "RatTest",
-            dependencies: ["RatTamerCore"]
+            dependencies: ["RaTamerCore"]
         ),
         .executableTarget(
             name: "IconGen",
             dependencies: []
         ),
         .testTarget(
-            name: "RatTamerCoreTests",
-            dependencies: ["RatTamerCore"]
+            name: "RaTamerCoreTests",
+            dependencies: ["RaTamerCore"]
         ),
     ]
 )
