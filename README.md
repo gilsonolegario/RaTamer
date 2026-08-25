@@ -9,6 +9,7 @@ A native macOS menu bar app that replaces Logitech Options+ for the MX Master 3 
 ![Universal](https://img.shields.io/badge/arch-arm64%20%2B%20x86__64-blueviolet?style=flat)
 ![License](https://img.shields.io/badge/license-MIT-green?style=flat)
 ![Version](https://img.shields.io/badge/version-1.0.2-FF9F1C?style=flat)
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-FFDD00?style=flat&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/gilsonolegario)
 
 [![Settings — About tab](screenshots/settings-about.png)](screenshots/settings-about.png)
 
