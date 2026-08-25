@@ -42,7 +42,7 @@ else
     gh release create "$TAG" "$ZIP" \
         --repo gilsonolegario/RaTamer \
         --title "RaTamer $VERSION" \
-        --notes "Pre-built app bundle (ad-hoc signed, **not notarized**). See the README 'First launch (macOS 15+)' section for how to open it on macOS 15+." \
+        --notes "Pre-built RaTamer.app bundle (signed with a local self-signed identity, **not notarized**). See the README 'First launch (macOS 15+)' section for how to open it on macOS 15+." \
         $DRAFT
 fi
 echo "==> Done."

@@ -8,7 +8,7 @@ A native macOS menu bar app that replaces Logitech Options+ for the MX Master 3 
 ![macOS](https://img.shields.io/badge/macOS-14%2B-000000?logo=apple&logoColor=white&style=flat)
 ![Universal](https://img.shields.io/badge/arch-arm64%20%2B%20x86__64-blueviolet?style=flat)
 ![License](https://img.shields.io/badge/license-MIT-green?style=flat)
-![Version](https://img.shields.io/badge/version-1.0.2-FF9F1C?style=flat)
+![Version](https://img.shields.io/badge/version-1.0.3-FF9F1C?style=flat)
 [![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-FFDD00?style=flat&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/gilsonolegario)
 
 [![Settings — About tab](screenshots/settings-about.png)](screenshots/settings-about.png)
@@ -127,6 +127,10 @@ full advanced tuning. No license keys, no accounts, no telemetry.
 - **The HID++ protocol, byte by byte** — [docs/HIDPP.md](docs/HIDPP.md)
 
 ## History
+
+**1.0.3** — The app is now named **RaTamer** everywhere: code, targets, app bundle,
+docs and website (previously "RatTamer"); the RaTest developer tool follows the
+same naming; Buy Me a Coffee support link added to the site and README.
 
 **1.0.2** — Native smoothness control: a standard slider plus a compact preset menu
 replaces the tick bar and chip grid; remaining Portuguese UI strings translated to
