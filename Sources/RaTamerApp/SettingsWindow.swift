@@ -10,6 +10,10 @@ final class SettingsNSWindow: NSWindow {
 final class SettingsWindow {
     static let shared = SettingsWindow()
     private var window: NSWindow?
+    private var resizeWorkItem: DispatchWorkItem?
+    private var isLiveResizing = false
+    private var mouseUpMonitor: Any?
+    private var lastTabSwitchTime: CFTimeInterval = 0
 
     private init() {}
 
@@ -31,7 +35,7 @@ final class SettingsWindow {
                 self?.window?.title = "RaTamer — \(title)"
             },
             onContentHeight: { [weak self] height in
-                self?.resizeToContent(height)
+                self?.scheduleResize(height)
             })
         let hosting = NSHostingController(rootView: view)
         hosting.sizingOptions = []
@@ -47,6 +51,39 @@ final class SettingsWindow {
         window.styleMask = [.titled, .closable, .resizable]
         window.isReleasedWhenClosed = false
         self.window = window
+
+        // Track user drags: hugging the content height mid-drag is what made
+        // every resize look like a reflow dance (window snaps under the cursor).
+        let center = NotificationCenter.default
+        center.addObserver(forName: NSWindow.willStartLiveResizeNotification,
+                           object: window, queue: .main) { [weak self] _ in
+            self?.isLiveResizing = true
+        }
+        // No matching didEnd notification exists; detect mouse-up to clear the flag.
+        self.mouseUpMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseUp) {
+            [weak self] event in
+            self?.isLiveResizing = false
+            return event
+        }
+    }
+
+    /// Record the moment a tab switch happened. scheduleResize ignores
+    /// geometry changes for 250ms after this to avoid flashing.
+    func recordTabSwitch() {
+        lastTabSwitchTime = CACurrentMediaTime()
+    }
+
+    /// Debounced resize: batches rapid geometry changes into a single frame update.
+    /// During a tab-switch animation, delays the resize until the crossfade ends.
+    private func scheduleResize(_ contentHeight: CGFloat) {
+        guard !isLiveResizing else { return }
+        resizeWorkItem?.cancel()
+        let delay: TimeInterval = (CACurrentMediaTime() - lastTabSwitchTime < 0.25) ? 0.2 : 0.05
+        let work = DispatchWorkItem { [weak self] in
+            self?.resizeToContent(contentHeight)
+        }
+        resizeWorkItem = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
     }
 
     /// Grows/shrinks the window vertically to hug the pane content, keeping
@@ -67,6 +104,6 @@ final class SettingsWindow {
         guard abs(old.height - total) > 1 else { return }
         let newFrame = NSRect(x: old.minX, y: old.maxY - total,
                               width: old.width, height: total)
-        window.setFrame(newFrame, display: true, animate: true)
+        window.setFrame(newFrame, display: false, animate: false)
     }
 }

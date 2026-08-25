@@ -16,24 +16,23 @@ struct ButtonsTabView: View {
             HStack {
                 Text("Buttons").font(.headline)
                 Spacer()
-                Button("Reload") {
-                    config = AppModel.shared.configStore.load()
-                    AppModel.shared.engine?.applyConfig()
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
+                SegmentedPillRow(segments: [
+                    (label: "Reload", action: {
+                        config = AppModel.shared.configStore.load()
+                        AppModel.shared.engine?.applyConfig()
+                    }, isHighlighted: false)
+                ])
             }
             VStack(spacing: 6) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Thumb Wheel")
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
+                    HStack {
+                        Text("Thumb Wheel")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                        HelpButton(text: "Actions for horizontal scroll. If the direction feels inverted, swap Left/Right.")
+                    }
                     thumbWheelRow(side: .left)
                     thumbWheelRow(side: .right)
-                    Text("Actions for horizontal scroll. If the direction feels inverted, swap Left/Right.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .padding(.leading, 44)
                     Divider().padding(.vertical, 4)
                 }
                 ForEach(model.controls, id: \.cid) { control in
@@ -120,16 +119,26 @@ struct ButtonsTabView: View {
                 }
             }
             if let hint = nativeBackForwardHint(for: control) {
-                Text(hint)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .padding(.leading, 44)
+                HStack(spacing: 4) {
+                    Image(systemName: "questionmark.circle")
+                        .foregroundStyle(.secondary)
+                        .font(.caption)
+                    Text(hint)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.leading, 44)
             }
             if let hint = virtualGestureHint(for: control) {
-                Text(hint)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .padding(.leading, 44)
+                HStack(spacing: 4) {
+                    Image(systemName: "questionmark.circle")
+                        .foregroundStyle(.secondary)
+                        .font(.caption)
+                    Text(hint)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.leading, 44)
             }
         }
         .padding(.vertical, 6)

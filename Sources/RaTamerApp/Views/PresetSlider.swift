@@ -43,8 +43,9 @@ struct PresetSlider: View {
                 .frame(width: 120, alignment: .leading)
                 .help(HelpTexts.preset)
                 Spacer()
-                Button("Reset to default") { onReset() }
-                    .controlSize(.small)
+                SegmentedPillRow(segments: [
+                    (label: "Reset", action: { onReset() }, isHighlighted: false)
+                ], compact: true)
             }
         }
     }

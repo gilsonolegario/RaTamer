@@ -58,36 +58,37 @@ struct WheelScrollTabView: View {
         Section {
             InvertScrollToggleRow()
         } header: {
-            Text("Direction")
-        } footer: {
-            Text("Invert if the wheel scrolls the wrong way compared to your other mice.")
+            HStack {
+                Text("Direction")
+                HelpButton(text: "Invert if the wheel scrolls the wrong way compared to your other mice.")
+            }
         }
     }
 
     private var wheelModeSection: some View {
         Section {
-            Picker("Mode", selection: Binding(
-                get: { config.smartShiftMode },
-                set: { setSmartShiftMode($0) }))
-            {
-                Label("Native (default)", systemImage: "arrow.uturn.left.circle")
-                    .tag(SmartShiftMode?.none)
-                Label("Free-spin", systemImage: "wind")
-                    .tag(SmartShiftMode?.some(.freespin))
-                Label("Ratcheted", systemImage: "digitalcrown.arrow.clockwise")
-                    .tag(SmartShiftMode?.some(.ratcheted))
-                if model.capabilities.hasSmartShift {
-                    Label("SmartShift (auto)", systemImage: "bolt.badge.automatic")
-                        .tag(SmartShiftMode?.some(.smartshift))
-                }
-            }
+            SegmentedPillPicker(
+                items: [nil, SmartShiftMode.freespin, SmartShiftMode.ratcheted]
+                    + (model.capabilities.hasSmartShift ? [SmartShiftMode.smartshift] : []),
+                selection: Binding(
+                    get: { config.smartShiftMode },
+                    set: { setSmartShiftMode($0) }),
+                label: { mode in
+                    switch mode {
+                    case nil: return "Native"
+                    case .freespin: return "Free-spin"
+                    case .ratcheted: return "Ratcheted"
+                    case .smartshift: return "SmartShift"
+                    }
+                })
             if config.smartShiftMode == .smartshift {
                 smartShiftSensitivityRow()
             }
         } header: {
-            Text("Wheel Mode")
-        } footer: {
-            Text("Free-spin lets the wheel coast; ratcheted gives tactile steps; SmartShift switches automatically with scroll speed.")
+            HStack {
+                Text("Wheel Mode")
+                HelpButton(text: "Free-spin lets the wheel coast; ratcheted gives tactile steps; SmartShift switches automatically with scroll speed.")
+            }
         }
     }
 
@@ -124,16 +125,16 @@ struct WheelScrollTabView: View {
                             .disabled(!enabled)
                     }
                 }
-                Button(action: { ScrollGraphWindow.shared.show() }) {
-                    Label("Open Scroll Thermograph…", systemImage: "waveform.path.ecg")
-                }
-                .buttonStyle(.bordered)
+                SegmentedPillRow(segments: [
+                    (label: "Scroll Thermograph…", action: { ScrollGraphWindow.shared.show() }, isHighlighted: false)
+                ])
                 .help("Live thermal graph of raw vs smoothed scrolling in a separate window.")
             }
         } header: {
-            Text("Smooth Scrolling")
-        } footer: {
-            Text("Replaces stepped wheel clicks with fluid glide. Fine tuning exposes the physics behind the presets.")
+            HStack {
+                Text("Smooth Scrolling")
+                HelpButton(text: "Replaces stepped wheel clicks with fluid glide. Fine tuning exposes the physics behind the presets.")
+            }
         }
     }
 

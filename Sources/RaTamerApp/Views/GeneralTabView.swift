@@ -11,45 +11,52 @@ struct GeneralTabView: View {
                 Section {
                     PermissionStatusRow()
                 } header: {
-                    Text("Accessibility")
-                } footer: {
-                    Text("RaTamer needs accessibility permission to remap buttons and post keyboard/mouse events.")
+                    HStack {
+                        Text("Accessibility")
+                        HelpButton(text: "RaTamer needs accessibility permission to remap buttons and post keyboard/mouse events.")
+                    }
                 }
                 Section {
-                    Toggle("Enable remapping", isOn: $model.remappingEnabled)
+                    HStack {
+                        Toggle("Enable remapping", isOn: $model.remappingEnabled)
+                        HelpButton(text: "When off, buttons fall back to native behavior until re-enabled.")
+                    }
                 } header: {
                     Text("Remapping")
-                } footer: {
-                    Text("When off, buttons fall back to native behavior until re-enabled.")
                 }
                 Section {
-                    TerminalProtectionRow()
+                    HStack {
+                        TerminalProtectionRow()
+                        HelpButton(text: "Blocks synthesized keys, clicks and scrolls while a terminal app is focused, so shortcuts and gestures never land as text in tmux.")
+                    }
                 } header: {
                     Text("Terminal Protection")
-                } footer: {
-                    Text("Blocks synthesized keys, clicks and scrolls while a terminal app is focused, so shortcuts and gestures never land as text in tmux. Native mouse behavior is preserved.")
                 }
                 Section {
                     DPISliderRow()
                     DPICyclePresetsRow()
+                    HStack {
+                        Spacer()
+                        HelpButton(text: "Sensor resolution. Assign \"Cycle DPI\" to a button in the Buttons tab to switch presets on the fly.")
+                    }
                 } header: {
                     Text("DPI")
-                } footer: {
-                    Text("Sensor resolution. Assign “Cycle DPI” to a button in the Buttons tab to switch presets on the fly.")
                 }
                 Section {
-                    Toggle("Start at login", isOn: $loginItem.isEnabled)
+                    HStack {
+                        Toggle("Start at login", isOn: $loginItem.isEnabled)
+                        HelpButton(text: "Launches RaTamer when you log in so button remapping is always available.")
+                    }
                 } header: {
                     Text("Login")
-                } footer: {
-                    Text("Launches RaTamer when you log in so button remapping is always available.")
                 }
                 Section {
-                    DockIconRow()
+                    HStack {
+                        DockIconRow()
+                        HelpButton(text: "Hides the Dock icon and keeps RaTamer accessible only from the menu bar and popover.")
+                    }
                 } header: {
                     Text("Dock")
-                } footer: {
-                    Text("Hides the Dock icon and keeps RaTamer accessible only from the menu bar and popover.")
                 }
             }
             .formStyle(.grouped)
@@ -115,9 +122,9 @@ struct PermissionStatusRow: View {
         HStack {
             Label("Accessibility", systemImage: accessibility ? "checkmark.circle.fill" : "xmark.circle.fill")
                 .foregroundStyle(accessibility ? .green : .red)
-            Button("Fix") { openAccessibilitySettings() }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
+            SegmentedPillRow(segments: [
+                (label: "Fix", action: { openAccessibilitySettings() }, isHighlighted: true)
+            ], compact: true)
             Spacer()
             Text(AppModel.shared.statusText).font(.caption)
         }
@@ -216,13 +223,11 @@ struct DPICyclePresetsRow: View {
                 .textFieldStyle(.roundedBorder)
                 .onSubmit(save)
             HStack {
-                Text("Assign 'Cycle DPI' to a button in the Buttons tab. Empty uses defaults.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                HelpButton(text: "Assign 'Cycle DPI' to a button in the Buttons tab to switch presets on the fly. Empty uses defaults.")
                 Spacer()
-                Button("Reset") { reset() }
-                    .controlSize(.small)
-                    .disabled(!configured)
+                SegmentedPillRow(segments: [
+                    (label: "Reset", action: { reset() }, isHighlighted: configured)
+                ])
             }
         }
         .padding(.top, 4)

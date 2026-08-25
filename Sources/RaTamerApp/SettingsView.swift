@@ -13,15 +13,9 @@ struct SettingsView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Picker("", selection: $selection) {
-                Label("General", systemImage: "gearshape").tag("General")
-                Label("Buttons", systemImage: "computermouse").tag("Buttons")
-                Label("Scrolling", systemImage: "scroll").tag("Scrolling")
-                Label("About", systemImage: "info.circle").tag("About")
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .controlSize(.large)
+            TabBar(
+                tabs: ["General", "Buttons", "Scrolling", "About"],
+                selection: $selection)
             .padding(.horizontal, 14)
             .padding(.top, 10)
 
@@ -35,9 +29,9 @@ struct SettingsView: View {
                     }
                 }
                 .frame(maxWidth: .infinity)
-                // Continuous geometry callback (back-deployed); PreferenceKey
-                // + GeometryReader proved one-shot here: it fired only on the
-                // first layout and never on pane switches.
+                // Continuous geometry callback; PreferenceKey + GeometryReader
+                // was one-shot here (fired only on first layout, never on pane
+                // switches). onGeometryChange fires on every layout pass.
                 .onGeometryChange(for: CGFloat.self) { proxy in
                     proxy.size.height
                 } action: { height in
@@ -49,19 +43,15 @@ struct SettingsView: View {
             }
         }
         .onAppear {
-            // Pre-1.1 panes ("Advanced") no longer exist; fall back to General
-            // so the segmented picker never shows an empty selection.
             if !["General", "Buttons", "Scrolling", "About"].contains(selection) {
                 selection = "General"
             }
-            // Async: on first open the SwiftUI view lays out while
-            // NSWindow(contentViewController:) is still initializing, before
-            // SettingsWindow.window is assigned — the sync callback would hit nil.
             DispatchQueue.main.async { self.onTitleChange(selection) }
         }
         .onChange(of: selection) { _, newValue in
             CrashReporter.addBreadcrumb("settings tab: \(newValue)")
             onTitleChange(newValue)
+            SettingsWindow.shared.recordTabSwitch()
         }
     }
 }

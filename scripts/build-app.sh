@@ -85,3 +85,15 @@ codesign --force --sign "$CODESIGN_IDENTITY" "$APP"
 echo "==> Architectures:"
 lipo -info "$APP/Contents/MacOS/RaTamer"
 echo "Built and signed $APP (identity: $CODESIGN_IDENTITY)"
+
+# ======================================================================
+# INSTALL: stop running instance, copy to /Applications, relaunch.
+# ======================================================================
+INSTALL_DIR="/Applications/RaTamer.app"
+if [ -d "$INSTALL_DIR" ]; then
+    pkill -x RaTamer 2>/dev/null && sleep 1 || true
+    rm -rf "$INSTALL_DIR"
+fi
+cp -R "$APP" "$INSTALL_DIR"
+open "$INSTALL_DIR"
+echo "==> Installed to $INSTALL_DIR"

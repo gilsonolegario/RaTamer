@@ -25,6 +25,7 @@ struct RaTestView: View {
     @State private var smoothFraction: Double = SmoothnessLevel.smoothFraction(SmoothnessLevel.defaultValue)
     @State private var glideStopThreshold: Double = SmoothnessLevel.glideStopThreshold(SmoothnessLevel.defaultValue)
     @State private var syncedLevel: Double?
+    @State private var selectedPreset: SmoothnessPreset = .native
     @State private var thumbWheelLog: [String] = []
 
     init(engine: RaTestEngine) {
@@ -34,33 +35,54 @@ struct RaTestView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 10) {
-                Text(status).font(.subheadline)
-                Divider()
-                Text("Buttons").font(.headline)
-                VStack(spacing: 6) {
-                    ForEach(controls, id: \.cid) { control in
-                        row(for: control)
-                    }
+            VStack(alignment: .leading, spacing: 14) {
+                // Status
+                if !status.isEmpty {
+                    Text(status)
+                        .font(.callout)
+                        .foregroundStyle(Color.ratAccent)
+                        .padding(.vertical, 4)
                 }
-                Text(footerText).font(.caption).foregroundStyle(.secondary)
-                Divider()
-                Text("Smooth Scroll").font(.headline)
-                smoothPanel
-                Divider()
-                Text("Wheel Mode").font(.headline)
-                wheelModePanel
-                Divider()
-                Text("DPI").font(.headline)
-                dpiPanel
-                Divider()
-                Text("Thumb Wheel").font(.headline)
-                thumbWheelPanel
+
+                // Buttons
+                RatCard {
+                    SectionHeader(title: "Buttons")
+                    VStack(spacing: 6) {
+                        ForEach(controls, id: \.cid) { control in
+                            row(for: control)
+                        }
+                    }
+                    Text(footerText).font(.caption).foregroundStyle(.secondary)
+                }
+
+                // Smooth Scroll
+                RatCard {
+                    SectionHeader(title: "Smooth Scroll")
+                    smoothPanel
+                }
+
+                // Wheel Mode
+                RatCard {
+                    SectionHeader(title: "Wheel Mode")
+                    wheelModePanel
+                }
+
+                // DPI
+                RatCard {
+                    SectionHeader(title: "DPI")
+                    dpiPanel
+                }
+
+                // Thumb Wheel
+                RatCard {
+                    SectionHeader(title: "Thumb Wheel")
+                    thumbWheelPanel
+                }
             }
-            .padding()
+            .padding(18)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(width: 660)
+        .frame(minWidth: 560, idealWidth: 620, maxWidth: .infinity)
         .onAppear {
             engine.onStatus = { status = $0 }
             engine.onControlsChanged = { controls = $0 }
@@ -78,31 +100,34 @@ struct RaTestView: View {
     }
 
     private func row(for control: ControlInfo) -> some View {
-        HStack {
+        HStack(alignment: .center) {
             Text(ControlTaskName.name(for: control.taskID))
-                .frame(width: 190, alignment: .leading)
+                .frame(width: 170, alignment: .leading)
             Text(String(format: "0x%04X", control.cid))
                 .font(.caption.monospaced())
-                .frame(width: 52, alignment: .leading)
+                .frame(width: 50, alignment: .leading)
             Text(String(format: "tid 0x%04X", control.taskID))
                 .font(.caption.monospaced())
                 .foregroundStyle(.secondary)
-                .frame(width: 84, alignment: .leading)
+                .frame(width: 80, alignment: .leading)
             if control.isDivertable {
                 Picker("", selection: actionBinding(for: control)) {
                     actionOptions
                 }
                 .pickerStyle(.menu)
-                .frame(width: 190)
-                Button("Run", action: { engine.runAction(for: control.cid) })
-                    .disabled(isDisabled(for: control))
+                .frame(width: 160)
+                SegmentedPillRow(segments: [
+                    ("Run", { engine.runAction(for: control.cid) }, !isDisabled(for: control))
+                ])
+                .fixedSize()
             } else {
                 Text("Native only").font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
         }
-        .padding(4)
-        .background(pressed.contains(control.cid) ? Color.accentColor.opacity(0.35) : Color.clear)
+        .padding(.vertical, 4)
+        .padding(.horizontal, 4)
+        .background(pressed.contains(control.cid) ? Color.ratAccent.opacity(0.18) : Color.clear)
         .cornerRadius(4)
     }
 
@@ -153,8 +178,13 @@ struct RaTestView: View {
             }
             HStack(spacing: 6) {
                 Text("Presets").frame(width: 160, alignment: .leading)
-                ForEach(SmoothnessPreset.allCases, id: \.self) { preset in
-                    Button(preset.displayName) { applyPreset(preset) }
+                SegmentedPillPicker(
+                    items: SmoothnessPreset.allCases,
+                    selection: $selectedPreset,
+                    label: { $0.displayName }
+                )
+                .onChange(of: selectedPreset) { _, newPreset in
+                    applyPreset(newPreset)
                 }
             }
             sliderRow("Max boost", value: $maxBoost, range: 1.0...6.0, step: 0.1)
@@ -185,8 +215,11 @@ struct RaTestView: View {
                 HStack {
                     Text("Mode: \(engine.wheelModeDescription)")
                         .frame(width: 200, alignment: .leading)
-                    Button("Ratchet") { engine.setWheelMode(ratcheted: true) }
-                    Button("Free-spin") { engine.setWheelMode(ratcheted: false) }
+                    SegmentedPillRow(segments: [
+                        ("Ratchet", { engine.setWheelMode(ratcheted: true) }, engine.wheelModeDescription == "Ratchet"),
+                        ("Free-spin", { engine.setWheelMode(ratcheted: false) }, engine.wheelModeDescription != "Ratchet")
+                    ])
+                    .fixedSize()
                     Spacer()
                 }
             } else {
@@ -202,8 +235,9 @@ struct RaTestView: View {
             Text("Cycle: \(engine.dpiCycleValues.map(String.init).joined(separator: " → "))")
                 .font(.caption).foregroundStyle(.secondary)
                 .lineLimit(1).truncationMode(.tail)
-            Button("Cycle DPI") { engine.cycleDPI() }
-                .disabled(engine.dpiCycleValues.isEmpty)
+            SegmentedPillRow(segments: [
+                ("Cycle DPI", { engine.cycleDPI() }, !engine.dpiCycleValues.isEmpty)
+            ])
             Spacer()
         }
     }
