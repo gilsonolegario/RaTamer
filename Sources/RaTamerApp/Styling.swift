@@ -72,18 +72,12 @@ struct TabBar: View {
                         Text(tab)
                             .font(.subheadline.weight(isSelected ? .semibold : .regular))
                             .foregroundStyle(isSelected ? tint : .secondary)
-                        ZStack {
-                            Rectangle()
-                                .fill(tint)
-                                .frame(height: 2)
-                                .opacity(isSelected ? 1 : 0)
-                                .matchedGeometryEffect(id: "tab-underline", in: indicatorSpace)
-                            Rectangle()
-                                .fill(.clear)
-                                .frame(height: 2)
-                                .opacity(isSelected ? 0 : 1)
-                        }
-                        .frame(maxWidth: .infinity)
+                        Rectangle()
+                            .fill(tint)
+                            .frame(height: 2)
+                            .opacity(isSelected ? 1 : 0)
+                            .matchedGeometryEffect(id: "tab-underline", in: indicatorSpace, isSource: isSelected)
+                            .frame(maxWidth: .infinity)
                     }
                     .contentShape(Rectangle())
                 }
