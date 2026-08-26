@@ -114,9 +114,9 @@ struct RaTestView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            // Explicit breathing room BELOW the content, included in the
-            // measurement (applied before onGeometryChange reads the size).
-            .padding(.bottom, 14)
+            // No extra bottom padding here: every pane already carries its own
+            // .padding(14) on all sides — stacking both inflated the measured
+            // height by 14pt and the window stopped taller than the chrome.
             // Measure THIS pane's content height INSIDE its ScrollView:
             // the viewport clips, the content doesn't — this reports the
             // ideal height even when it exceeds the visible area.
@@ -205,26 +205,26 @@ struct RaTestView: View {
                 thumbWheelPanel
             }
         }
-        .padding(18)
+        .padding(14)
     }
 
     private func row(for control: ControlInfo) -> some View {
-        HStack(alignment: .center) {
+        HStack(alignment: .center, spacing: 12) {
+            Image(systemName: icon(for: control))
+                .frame(width: 24)
+                .foregroundStyle(.secondary)
             Text(ControlTaskName.name(for: control.taskID))
                 .frame(width: 170, alignment: .leading)
             Text(String(format: "0x%04X", control.cid))
                 .font(.caption.monospaced())
+                .foregroundStyle(.secondary)
                 .frame(width: 50, alignment: .leading)
             Text(String(format: "tid 0x%04X", control.taskID))
                 .font(.caption.monospaced())
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.tertiary)
                 .frame(width: 80, alignment: .leading)
             if control.isDivertable {
-                Picker("", selection: actionBinding(for: control)) {
-                    actionOptions
-                }
-                .pickerStyle(.menu)
-                .frame(width: 160)
+                actionMenu(for: control)
                 SegmentedPillRow(segments: [
                     ("Run", { engine.runAction(for: control.cid) }, !isDisabled(for: control))
                 ])
@@ -234,10 +234,54 @@ struct RaTestView: View {
             }
             Spacer()
         }
-        .padding(.vertical, 4)
-        .padding(.horizontal, 4)
-        .background(pressed.contains(control.cid) ? Color.ratAccent.opacity(0.18) : Color.clear)
-        .cornerRadius(4)
+        .padding(.vertical, 6)
+        .padding(.horizontal, 8)
+        // Same pressed highlight as RaTamer's ButtonsTabView rows.
+        .background(pressed.contains(control.cid) ? Color.ratAccent.opacity(0.35) : Color.clear)
+        .cornerRadius(6)
+    }
+
+    /// SF Symbol matching the control's task ID — same mapping as RaTamer.
+    private func icon(for control: ControlInfo) -> String {
+        switch control.taskID {
+        case 0x0038: return "cursorarrow"
+        case 0x0039: return "arrow.up.right"
+        case 0x003A: return "circle.fill"
+        case 0x003C: return "arrow.left.to.line"
+        case 0x003E: return "arrow.right.to.line"
+        case 0x009D: return "scroll"
+        case 0x00A9: return "hand.draw"
+        case ControlCID.virtualGesture: return "wand.and.stars"
+        default: return "questionmark.circle"
+        }
+    }
+
+    /// Menu with the same custom label as RaTamer (text + chevron on a gray
+    /// pill) — the native `.pickerStyle(.menu)` pop-up looks dated next to it.
+    private func actionMenu(for control: ControlInfo) -> some View {
+        let action = config.action(forCID: control.cid) ?? .disabled
+        return Menu {
+            // Inline picker inside the menu keeps the actionBinding intact
+            // while rendering as native check-marked items.
+            Picker("", selection: actionBinding(for: control)) {
+                actionOptions
+            }
+            .pickerStyle(.inline)
+            .labelsHidden()
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: ActionCatalog.icon(for: action))
+                Text(ActionCatalog.title(for: action))
+                Image(systemName: "chevron.down")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(RoundedRectangle(cornerRadius: 6).fill(Color.gray.opacity(0.15)))
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
     }
 
     private func actionBinding(for control: ControlInfo) -> Binding<ButtonAction> {
