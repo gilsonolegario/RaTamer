@@ -4,6 +4,26 @@ import SwiftUI
 
 struct RaTestView: View {
     let engine: RaTestEngine
+    var onContentHeight: (CGFloat) -> Void = { _ in }
+
+    // Three tabs cover everything the old single-scroll view had:
+    // Buttons, Smooth Scroll, and Hardware (Wheel Mode + DPI + Thumb Wheel).
+    @AppStorage("ratest.selectedTab") private var selection = "Buttons"
+
+    private let tabs = ["Buttons", "Scrolling", "Hardware"]
+
+    // Last known content height of each tab. All panes stay alive in the
+    // ZStack, so each records its height continuously; switching tabs
+    // replays the incoming pane's recorded height immediately — a plain
+    // opacity swap produces NO new layout pass, hence no fresh geometry
+    // emission, so without this replay the window would never resize.
+    @State private var contentHeights: [String: CGFloat] = [:]
+    // Height of the tab strip itself, including its top padding. Lives
+    // INSIDE the window's content but OUTSIDE each pane's measurement,
+    // so the resize target is paneHeight + tabBarHeight (chrome is added
+    // by RaTestWindow). Measured, not hardcoded.
+    @State private var tabBarHeight: CGFloat = 0
+
     @State private var config: Config
     @State private var status = ""
     @State private var controls: [ControlInfo] = []
@@ -28,75 +48,164 @@ struct RaTestView: View {
     @State private var selectedPreset: SmoothnessPreset = .native
     @State private var thumbWheelLog: [String] = []
 
-    init(engine: RaTestEngine) {
+    init(engine: RaTestEngine, onContentHeight: @escaping (CGFloat) -> Void = { _ in }) {
         self.engine = engine
+        self.onContentHeight = onContentHeight
         _config = State(initialValue: engine.configStore.load())
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                // Status
-                if !status.isEmpty {
-                    Text(status)
-                        .font(.callout)
-                        .foregroundStyle(Color.ratAccent)
-                        .padding(.vertical, 4)
-                }
-
-                // Buttons
-                RatCard {
-                    SectionHeader(title: "Buttons")
-                    VStack(spacing: 6) {
-                        ForEach(controls, id: \.cid) { control in
-                            row(for: control)
-                        }
-                    }
-                    Text(footerText).font(.caption).foregroundStyle(.secondary)
-                }
-
-                // Smooth Scroll
-                RatCard {
-                    SectionHeader(title: "Smooth Scroll")
-                    smoothPanel
-                }
-
-                // Wheel Mode
-                RatCard {
-                    SectionHeader(title: "Wheel Mode")
-                    wheelModePanel
-                }
-
-                // DPI
-                RatCard {
-                    SectionHeader(title: "DPI")
-                    dpiPanel
-                }
-
-                // Thumb Wheel
-                RatCard {
-                    SectionHeader(title: "Thumb Wheel")
-                    thumbWheelPanel
+        VStack(spacing: 0) {
+            TabBar(
+                tabs: tabs,
+                selection: $selection)
+            .padding(.horizontal, 14)
+            .padding(.top, 10)
+            .onGeometryChange(for: CGFloat.self) { proxy in
+                proxy.size.height
+            } action: { height in
+                let padded = height + 10  // the .padding(.top) above
+                if padded != tabBarHeight {
+                    tabBarHeight = padded
+                    reportTotalHeight()
                 }
             }
-            .padding(18)
-            .frame(maxWidth: .infinity, alignment: .leading)
+
+            // All panes stay alive — the crossfade is a pure opacity
+            // transition with no teardown/recreation. The 8pt vertical drift
+            // gives the incoming pane directional movement (rises into place)
+            // instead of a static fade.
+            ZStack(alignment: .top) {
+                ForEach(tabs, id: \.self) { tab in
+                    tabContent(for: tab)
+                        .opacity(selection == tab ? 1 : 0)
+                        .offset(y: selection == tab ? 0 : 8)
+                        .allowsHitTesting(selection == tab)
+                }
+            }
         }
-        .frame(minWidth: 560, idealWidth: 620, maxWidth: .infinity)
         .onAppear {
-            engine.onStatus = { status = $0 }
-            engine.onControlsChanged = { controls = $0 }
-            engine.onPress = { cid in DispatchQueue.main.async { pressed.insert(cid) } }
-            engine.onRelease = { cid in DispatchQueue.main.async { pressed.remove(cid) } }
-            engine.onThumbWheel = { direction in
-                DispatchQueue.main.async {
-                    let label = direction == .left ? "left" : "right"
-                    thumbWheelLog.append(label)
-                    if thumbWheelLog.count > 20 { thumbWheelLog.removeFirst(thumbWheelLog.count - 20) }
+            if !tabs.contains(selection) {
+                selection = "Buttons"
+            }
+            startEngineHooks()
+        }
+        .onChange(of: selection) { _, _ in
+            reportTotalHeight()
+        }
+    }
+
+    /// Reports the full content height (tab strip + visible pane) so the
+    /// window can hug it exactly. Single source of truth for the resize
+    /// target — every height change funnels through here.
+    private func reportTotalHeight() {
+        guard let paneHeight = contentHeights[selection] else { return }
+        onContentHeight(paneHeight + tabBarHeight)
+    }
+
+    private func tabContent(for tab: String) -> some View {
+        ScrollView {
+            Group {
+                switch tab {
+                case "Buttons": buttonsContent
+                case "Scrolling": scrollingContent
+                case "Hardware": hardwareContent
+                default: EmptyView()
                 }
             }
-            _ = engine.start()
+            .frame(maxWidth: .infinity, alignment: .leading)
+            // Explicit breathing room BELOW the content, included in the
+            // measurement (applied before onGeometryChange reads the size).
+            .padding(.bottom, 14)
+            // Measure THIS pane's content height INSIDE its ScrollView:
+            // the viewport clips, the content doesn't — this reports the
+            // ideal height even when it exceeds the visible area.
+            .onGeometryChange(for: CGFloat.self) { proxy in
+                proxy.size.height
+            } action: { height in
+                contentHeights[tab] = height
+                if selection == tab {
+                    reportTotalHeight()
+                }
+            }
         }
+        // Kill the automatic vertical content margins: they sit OUTSIDE the
+        // measured node, so the window resize could never account for them
+        // and the pane always stopped short of the last row.
+        .contentMargins(.vertical, 0, for: .scrollContent)
+    }
+
+    // MARK: - Tab panes
+
+    private var statusText: String? {
+        status.isEmpty ? nil : status
+    }
+
+    private func startEngineHooks() {
+        engine.onStatus = { status = $0 }
+        engine.onControlsChanged = { controls = $0 }
+        engine.onPress = { cid in DispatchQueue.main.async { pressed.insert(cid) } }
+        engine.onRelease = { cid in DispatchQueue.main.async { pressed.remove(cid) } }
+        engine.onThumbWheel = { direction in
+            DispatchQueue.main.async {
+                let label = direction == .left ? "left" : "right"
+                thumbWheelLog.append(label)
+                if thumbWheelLog.count > 20 { thumbWheelLog.removeFirst(thumbWheelLog.count - 20) }
+            }
+        }
+        _ = engine.start()
+    }
+
+    private var buttonsContent: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if let statusText {
+                Text(statusText)
+                    .font(.callout)
+                    .foregroundStyle(Color.ratAccent)
+                    .padding(.vertical, 4)
+            }
+
+            RatCard {
+                SectionHeader(title: "Buttons")
+                VStack(spacing: 6) {
+                    ForEach(controls, id: \.cid) { control in
+                        row(for: control)
+                    }
+                }
+                Text(footerText).font(.caption).foregroundStyle(.secondary)
+            }
+        }
+        .padding(14)
+    }
+
+    private var scrollingContent: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            RatCard {
+                SectionHeader(title: "Smooth Scroll")
+                smoothPanel
+            }
+        }
+        .padding(14)
+    }
+
+    private var hardwareContent: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            RatCard {
+                SectionHeader(title: "Wheel Mode")
+                wheelModePanel
+            }
+
+            RatCard {
+                SectionHeader(title: "DPI")
+                dpiPanel
+            }
+
+            RatCard {
+                SectionHeader(title: "Thumb Wheel")
+                thumbWheelPanel
+            }
+        }
+        .padding(18)
     }
 
     private func row(for control: ControlInfo) -> some View {
@@ -165,7 +274,7 @@ struct RaTestView: View {
     }
 
     private var smoothPanel: some View {
-        Group {
+        VStack(alignment: .leading, spacing: 10) {
             Toggle("Enabled (diverts wheel to HID++)", isOn: $smoothEnabled)
                 .onChange(of: smoothEnabled) { _, _ in applySmoothEnable() }
             Text("Multiplier: \(engine.wheelMultiplier ?? 8)")
@@ -196,16 +305,21 @@ struct RaTestView: View {
             sliderRow("Smooth fraction", value: $smoothFraction, range: 0.02...0.15, step: 0.01)
             sliderRow("Glide stop", value: $glideStopThreshold, range: 0.0...2.0, step: 0.1)
             sliderRow("Pixels per notch", value: $pixelsPerNotch, range: 1...200, step: 1)
-            sliderRow("Accel window (s)", value: $accelerationWindow, range: 0.01...0.20, step: 0.01)
-            sliderRow("Feed gap timeout (s)", value: $feedGapTimeout, range: 0.02...0.30, step: 0.01)
-            sliderRow("Momentum stop", value: $momentumStopThreshold, range: 0.0...1.0, step: 0.05)
-            sliderRow("Bounce window (s)", value: $bounceWindow, range: 0.0...0.20, step: 0.005)
-            sliderRow("Bounce ratio", value: $bounceRatio, range: 0.1...1.0, step: 0.05)
-            sliderRow("Bounce damping", value: $bounceDamping, range: 0.0...1.0, step: 0.05)
-            Stepper("Reversal confirmation: \(reversalConfirmation)",
-                    value: $reversalConfirmation, in: 1...5)
-                .onChange(of: reversalConfirmation) { _, _ in applySmoothParams() }
-            sliderRow("Direction threshold", value: $directionThreshold, range: 0.0...5.0, step: 0.25)
+            DisclosureGroup("Advanced tuning") {
+                VStack(alignment: .leading, spacing: 8) {
+                    sliderRow("Accel window (s)", value: $accelerationWindow, range: 0.01...0.20, step: 0.01)
+                    sliderRow("Feed gap timeout (s)", value: $feedGapTimeout, range: 0.02...0.30, step: 0.01)
+                    sliderRow("Momentum stop", value: $momentumStopThreshold, range: 0.0...1.0, step: 0.05)
+                    sliderRow("Bounce window (s)", value: $bounceWindow, range: 0.0...0.20, step: 0.005)
+                    sliderRow("Bounce ratio", value: $bounceRatio, range: 0.1...1.0, step: 0.05)
+                    sliderRow("Bounce damping", value: $bounceDamping, range: 0.0...1.0, step: 0.05)
+                    Stepper("Reversal confirmation: \(reversalConfirmation)",
+                            value: $reversalConfirmation, in: 1...5)
+                        .onChange(of: reversalConfirmation) { _, _ in applySmoothParams() }
+                    sliderRow("Direction threshold", value: $directionThreshold, range: 0.0...5.0, step: 0.25)
+                }
+                .padding(.top, 6)
+            }
         }
     }
 

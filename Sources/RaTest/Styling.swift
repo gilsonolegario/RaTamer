@@ -23,7 +23,9 @@ struct SegmentedPillPicker<Item: Hashable>: View {
                     let isSelected = item == selection
 
                     Button {
-                        selection = item
+                        withAnimation(.easeInOut(duration: 0.15)) {
+                            selection = item
+                        }
                     } label: {
                         Text(label(item))
                             .font(.caption.weight(isSelected ? .semibold : .medium))
@@ -52,23 +54,69 @@ struct SegmentedPillPicker<Item: Hashable>: View {
     }
 }
 
+// MARK: - Tab Bar (navigation, not selection)
+
+struct TabBar: View {
+    let tabs: [String]
+    @Binding var selection: String
+    var tint: Color = .ratAccent
+    // Shared geometry so the underline SLIDES between tabs instead of
+    // vanishing from one and appearing in the next.
+    @Namespace private var indicatorSpace
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(tabs, id: \.self) { tab in
+                let isSelected = tab == selection
+
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        selection = tab
+                    }
+                } label: {
+                    VStack(spacing: 4) {
+                        Text(tab)
+                            .font(.subheadline.weight(isSelected ? .semibold : .regular))
+                            .foregroundStyle(isSelected ? tint : .secondary)
+                        ZStack {
+                            Rectangle()
+                                .fill(.clear)
+                                .frame(height: 2)
+                            if isSelected {
+                                Rectangle()
+                                    .fill(tint)
+                                    .frame(height: 2)
+                                    .matchedGeometryEffect(id: "tab-underline", in: indicatorSpace)
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+}
+
 // MARK: - Segmented Pill Row (action buttons)
 
 struct SegmentedPillRow: View {
     let segments: [(label: String, action: () -> Void, isHighlighted: Bool)]
     var tint: Color = .ratAccent
+    var compact: Bool = false
 
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: compact ? 3 : 4) {
             ForEach(segments.indices, id: \.self) { index in
                 let seg = segments[index]
 
                 Button(action: seg.action) {
                     Text(seg.label)
-                        .font(.callout.weight(seg.isHighlighted ? .semibold : .medium))
+                        .font(compact ? .caption.weight(seg.isHighlighted ? .semibold : .medium) : .callout.weight(seg.isHighlighted ? .semibold : .medium))
                         .foregroundStyle(seg.isHighlighted ? tint : .secondary)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 6)
+                        .padding(.horizontal, compact ? 10 : 14)
+                        .padding(.vertical, compact ? 4 : 6)
                         .background {
                             if seg.isHighlighted {
                                 Capsule()
