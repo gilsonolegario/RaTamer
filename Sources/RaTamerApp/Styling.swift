@@ -74,14 +74,14 @@ struct TabBar: View {
                             .foregroundStyle(isSelected ? tint : .secondary)
                         ZStack {
                             Rectangle()
+                                .fill(tint)
+                                .frame(height: 2)
+                                .opacity(isSelected ? 1 : 0)
+                                .matchedGeometryEffect(id: "tab-underline", in: indicatorSpace)
+                            Rectangle()
                                 .fill(.clear)
                                 .frame(height: 2)
-                            if isSelected {
-                                Rectangle()
-                                    .fill(tint)
-                                    .frame(height: 2)
-                                    .matchedGeometryEffect(id: "tab-underline", in: indicatorSpace)
-                            }
+                                .opacity(isSelected ? 0 : 1)
                         }
                         .frame(maxWidth: .infinity)
                     }
