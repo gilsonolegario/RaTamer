@@ -71,15 +71,20 @@ final class RaTestWindow {
         }
     }
 
-    /// Debounced resize: batches rapid geometry changes into a single frame update.
+    private var lastContentHeight: CGFloat = 0
+    /// Debounced resize: batches rapid geometry changes; large jumps (Disclosure)
+    /// get a longer debounce so the window hugs after the disclosure animation.
     private func scheduleResize(_ contentHeight: CGFloat) {
         guard !isLiveResizing else { return }
         resizeWorkItem?.cancel()
+        let delta = abs(contentHeight - lastContentHeight)
+        let delay: TimeInterval = delta > 140 ? 0.22 : 0.05
+        lastContentHeight = contentHeight
         let work = DispatchWorkItem { [weak self] in
             self?.resizeToContent(contentHeight)
         }
         resizeWorkItem = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: work)
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
     }
 
     /// Grows/shrinks the window vertically to hug the pane content,

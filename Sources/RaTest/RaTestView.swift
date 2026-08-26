@@ -47,6 +47,7 @@ struct RaTestView: View {
     @State private var syncedLevel: Double?
     @State private var selectedPreset: SmoothnessPreset = .native
     @State private var thumbWheelLog: [String] = []
+    @State private var isAdvancedExpanded = false
 
     init(engine: RaTestEngine, onContentHeight: @escaping (CGFloat) -> Void = { _ in }) {
         self.engine = engine
@@ -357,7 +358,7 @@ struct RaTestView: View {
             sliderRow("Smooth fraction", value: $smoothFraction, range: 0.02...0.15, step: 0.01)
             sliderRow("Glide stop", value: $glideStopThreshold, range: 0.0...2.0, step: 0.1)
             sliderRow("Pixels per notch", value: $pixelsPerNotch, range: 1...200, step: 1)
-            DisclosureGroup("Advanced tuning") {
+            DisclosureGroup("Advanced tuning", isExpanded: $isAdvancedExpanded) {
                 VStack(alignment: .leading, spacing: 8) {
                     sliderRow("Accel window (s)", value: $accelerationWindow, range: 0.01...0.20, step: 0.01)
                     sliderRow("Feed gap timeout (s)", value: $feedGapTimeout, range: 0.02...0.30, step: 0.01)
