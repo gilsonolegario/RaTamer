@@ -142,6 +142,7 @@ struct PermissionStatusRow: View {
 struct DPISliderRow: View {
     @State private var values: [UInt16] = []
     @State private var current: Double = 1000
+    @ObservedObject private var model = AppModel.shared
 
     var body: some View {
         Group {
@@ -158,13 +159,23 @@ struct DPISliderRow: View {
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)
+            } else if model.dpiCache != nil || model.isConnected {
+                Text(values.isEmpty ? "Loading DPI…" : "DPI feature unavailable on this device")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             } else {
-                Text("DPI feature unavailable on this device")
+                Text("Connect your mouse to see DPI options")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
         }
         .onAppear(perform: load)
+        .onChange(of: model.dpiCache) { _, cache in
+            if let cache {
+                self.values = cache.values
+                self.current = cache.value
+            }
+        }
     }
 
     private var closedRange: ClosedRange<Double> {

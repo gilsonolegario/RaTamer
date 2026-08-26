@@ -94,6 +94,7 @@ struct TabBar: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .focusable(false)
             }
         }
     }
