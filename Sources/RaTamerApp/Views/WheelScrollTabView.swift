@@ -387,6 +387,7 @@ struct InvertScrollToggleRow: View {
     @State private var inverted = false
     @State private var loaded = false
     @State private var unavailable = false
+    @ObservedObject private var model = AppModel.shared
 
     var body: some View {
         Group {
@@ -402,11 +403,29 @@ struct InvertScrollToggleRow: View {
                     }
             }
         }
-        .onAppear(perform: load)
+        .onAppear {
+            #if DEBUG
+            print("[InvertScroll] onAppear isConnected=\(model.isConnected) hasService=\(AppModel.shared.engine?.hiResWheelService != nil)")
+            #endif
+            load()
+        }
+        .onChange(of: model.isConnected) { _, connected in
+            #if DEBUG
+            print("[InvertScroll] isConnected=\(connected)")
+            #endif
+            if connected {
+                unavailable = false
+                loaded = false
+                load()
+            }
+        }
     }
 
     private func load() {
         guard let service = AppModel.shared.engine?.hiResWheelService else {
+            #if DEBUG
+            print("[InvertScroll] no hiResWheelService — mark unavailable")
+            #endif
             unavailable = true
             return
         }

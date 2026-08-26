@@ -164,15 +164,16 @@ struct RaTestView: View {
                     .padding(.vertical, 4)
             }
 
-            RatCard {
-                SectionHeader(title: "Buttons")
-                VStack(spacing: 6) {
-                    ForEach(controls, id: \.cid) { control in
-                        row(for: control)
-                    }
-                }
-                Text(footerText).font(.caption).foregroundStyle(.secondary)
+            HStack {
+                Text("Buttons").font(.headline)
+                Spacer()
             }
+            VStack(spacing: 6) {
+                ForEach(controls, id: \.cid) { control in
+                    row(for: control)
+                }
+            }
+            Text(footerText).font(.caption).foregroundStyle(.secondary)
         }
         .padding(14)
     }
@@ -180,8 +181,10 @@ struct RaTestView: View {
     private var scrollingContent: some View {
         VStack(alignment: .leading, spacing: 12) {
             RatCard {
-                SectionHeader(title: "Smooth Scroll")
-                smoothPanel
+                VStack(alignment: .leading, spacing: 8) {
+                    SectionHeader(title: "Smooth Scroll")
+                    smoothPanel
+                }
             }
         }
         .padding(14)
@@ -190,18 +193,24 @@ struct RaTestView: View {
     private var hardwareContent: some View {
         VStack(alignment: .leading, spacing: 12) {
             RatCard {
-                SectionHeader(title: "Wheel Mode")
-                wheelModePanel
+                VStack(alignment: .leading, spacing: 8) {
+                    SectionHeader(title: "Wheel Mode")
+                    wheelModePanel
+                }
             }
 
             RatCard {
-                SectionHeader(title: "DPI")
-                dpiPanel
+                VStack(alignment: .leading, spacing: 8) {
+                    SectionHeader(title: "DPI")
+                    dpiPanel
+                }
             }
 
             RatCard {
-                SectionHeader(title: "Thumb Wheel")
-                thumbWheelPanel
+                VStack(alignment: .leading, spacing: 8) {
+                    SectionHeader(title: "Thumb Wheel")
+                    thumbWheelPanel
+                }
             }
         }
         .padding(14)

@@ -169,16 +169,30 @@ struct DPISliderRow: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .onAppear(perform: load)
+        .onAppear {
+            #if DEBUG
+            print("[DPISliderRow] onAppear isConnected=\(model.isConnected) dpiCacheNil=\(model.dpiCache==nil) serviceNil=\(AppModel.shared.engine?.dpiService==nil) capsHasDPI=\(model.capabilities.hasDPI)")
+            #endif
+            load()
+        }
         .onChange(of: model.dpiCache) { _, cache in
             if let cache {
                 self.values = cache.values
                 self.current = cache.value
+                #if DEBUG
+                print("[DPISliderRow] dpiCache arrived count=\(cache.values.count) value=\(cache.value)")
+                #endif
             } else {
                 self.values = []
+                #if DEBUG
+                print("[DPISliderRow] dpiCache cleared")
+                #endif
             }
         }
         .onChange(of: model.isConnected) { _, connected in
+            #if DEBUG
+            print("[DPISliderRow] isConnected=\(connected)")
+            #endif
             if connected { load() }
         }
     }
