@@ -35,6 +35,7 @@ struct WheelScrollTabView: View {
 
     // SmartShift wheel mode.
     @State private var smartShiftSensitivity: Double = 16
+    @State private var isFineTuningExpanded = false
 
     @State private var persistTask: Task<Void, Never>?
 
@@ -120,7 +121,7 @@ struct WheelScrollTabView: View {
                                      onSelect: { applyPreset($0) },
                                      onReset: { resetToDefault() })
                     }
-                    DisclosureGroup("Fine tuning") {
+                    DisclosureGroup("Fine tuning", isExpanded: $isFineTuningExpanded) {
                         advancedPanel
                             .disabled(!enabled)
                     }

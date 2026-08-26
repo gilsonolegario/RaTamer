@@ -19,8 +19,6 @@ final class SettingsWindow {
     func show() {
         makeWindowIfNeeded()
         window?.makeKeyAndOrderFront(nil)
-        // Defocus: prevents the first TabBar button from stealing first responder
-        // on open (its blue focus ring would otherwise look like a stuck selection).
         window?.makeFirstResponder(nil)
         NSApp.activate(ignoringOtherApps: true)
         CrashReporter.addBreadcrumb("settings shown")
@@ -68,15 +66,23 @@ final class SettingsWindow {
         }
     }
 
+    private var lastContentHeight: CGFloat = 0
     /// Debounced resize: batches rapid geometry changes into a single frame update.
+    /// Large jumps (e.g. abrir o DisclosureGroup "Fine tuning" da aba Scrolling)
+    /// são criados de uma vez na main thread e deixam a UI engasgada se a janela
+    /// tentar acompanhar no mesmo frame da animação do disclosure. Nesses casos
+    /// alonga o debounce para a janela só `hug` depois da animação terminar.
     private func scheduleResize(_ contentHeight: CGFloat) {
         guard !isLiveResizing else { return }
         resizeWorkItem?.cancel()
+        let delta = abs(contentHeight - lastContentHeight)
+        let delay: TimeInterval = delta > 140 ? 0.22 : 0.05
+        lastContentHeight = contentHeight
         let work = DispatchWorkItem { [weak self] in
             self?.resizeToContent(contentHeight)
         }
         resizeWorkItem = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: work)
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
     }
 
     /// Grows/shrinks the window vertically to hug the pane content.

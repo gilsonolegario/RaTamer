@@ -146,7 +146,7 @@ struct DPISliderRow: View {
 
     var body: some View {
         Group {
-            if values.count > 1 && model.isConnected {
+            if values.count > 1 {
                 Slider(value: $current, in: closedRange, step: step) { editing in
                     if !editing { apply(UInt16(current)) }
                 }
@@ -159,7 +159,7 @@ struct DPISliderRow: View {
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            } else if model.isConnected || model.dpiCache != nil {
+            } else if model.isConnected {
                 Text(values.isEmpty ? "Loading DPI…" : "DPI feature unavailable on this device")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -170,29 +170,21 @@ struct DPISliderRow: View {
             }
         }
         .onAppear {
-            #if DEBUG
-            print("[DPISliderRow] onAppear isConnected=\(model.isConnected) dpiCacheNil=\(model.dpiCache==nil) serviceNil=\(AppModel.shared.engine?.dpiService==nil) capsHasDPI=\(model.capabilities.hasDPI)")
-            #endif
+            NSLog("[DPISliderRow] onAppear isConnected=%d dpiCacheNil=%d serviceNil=%d capsHasDPI=%d", model.isConnected ? 1 : 0, model.dpiCache==nil ? 1 : 0, AppModel.shared.engine?.dpiService==nil ? 1 : 0, model.capabilities.hasDPI ? 1 : 0)
             load()
         }
         .onChange(of: model.dpiCache) { _, cache in
             if let cache {
                 self.values = cache.values
                 self.current = cache.value
-                #if DEBUG
-                print("[DPISliderRow] dpiCache arrived count=\(cache.values.count) value=\(cache.value)")
-                #endif
+                NSLog("[DPISliderRow] dpiCache arrived count=%d value=%.0f", cache.values.count, cache.value)
             } else {
                 self.values = []
-                #if DEBUG
-                print("[DPISliderRow] dpiCache cleared")
-                #endif
+                NSLog("[DPISliderRow] dpiCache cleared")
             }
         }
         .onChange(of: model.isConnected) { _, connected in
-            #if DEBUG
-            print("[DPISliderRow] isConnected=\(connected)")
-            #endif
+            NSLog("[DPISliderRow] isConnected=%d", connected ? 1 : 0)
             if connected { load() }
         }
     }
