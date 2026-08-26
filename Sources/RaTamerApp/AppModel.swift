@@ -47,6 +47,7 @@ final class AppModel: ObservableObject {
                 case .disconnected:
                     self.isConnected = false
                     self.isReconnecting = false
+                    self.dpiCache = nil
                 case .reconnecting:
                     self.isConnected = false
                     self.isReconnecting = true

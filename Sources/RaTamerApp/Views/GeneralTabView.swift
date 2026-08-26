@@ -146,7 +146,7 @@ struct DPISliderRow: View {
 
     var body: some View {
         Group {
-            if values.count > 1 {
+            if values.count > 1 && model.isConnected {
                 Slider(value: $current, in: closedRange, step: step) { editing in
                     if !editing { apply(UInt16(current)) }
                 }
@@ -159,7 +159,7 @@ struct DPISliderRow: View {
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            } else if model.dpiCache != nil || model.isConnected {
+            } else if model.isConnected || model.dpiCache != nil {
                 Text(values.isEmpty ? "Loading DPI…" : "DPI feature unavailable on this device")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -174,7 +174,12 @@ struct DPISliderRow: View {
             if let cache {
                 self.values = cache.values
                 self.current = cache.value
+            } else {
+                self.values = []
             }
+        }
+        .onChange(of: model.isConnected) { _, connected in
+            if connected { load() }
         }
     }
 

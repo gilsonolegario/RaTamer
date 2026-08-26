@@ -48,7 +48,7 @@ final class RaTestWindow {
         window.title = "RaTest — Button Tester"
         // Content hugs each tab's height via scheduleResize; no frame
         // autosave because a restored frame would fight resizeToContent.
-        window.setContentSize(NSSize(width: 560, height: 500))
+        window.setContentSize(NSSize(width: 640, height: 500))
         window.contentMinSize = NSSize(width: 520, height: 320)
         window.contentMaxSize = NSSize(width: 800, height: 1400)
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
