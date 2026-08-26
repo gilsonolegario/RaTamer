@@ -404,15 +404,11 @@ struct InvertScrollToggleRow: View {
             }
         }
         .onAppear {
-            #if DEBUG
             print("[InvertScroll] onAppear isConnected=\(model.isConnected) hasService=\(AppModel.shared.engine?.hiResWheelService != nil)")
-            #endif
             load()
         }
         .onChange(of: model.isConnected) { _, connected in
-            #if DEBUG
             print("[InvertScroll] isConnected=\(connected)")
-            #endif
             if connected {
                 unavailable = false
                 loaded = false
@@ -423,21 +419,20 @@ struct InvertScrollToggleRow: View {
 
     private func load() {
         guard let service = AppModel.shared.engine?.hiResWheelService else {
-            #if DEBUG
-            print("[InvertScroll] no hiResWheelService — mark unavailable")
-            #endif
-            unavailable = true
+            print("[InvertScroll] no hiResWheelService — will retry when connected")
+            unavailable = false
             return
         }
         DispatchQueue.global(qos: .utility).async {
             let hasInvert = (try? service.getInfo())?.hasInvert == true
-            guard hasInvert else {
-                DispatchQueue.main.async { self.unavailable = true }
-                return
-            }
+            print("[InvertScroll] hasInvert=\(hasInvert)")
             let stored = AppModel.shared.configStore.load().invertScrollDirection
             let inverted = stored ?? ((try? service.getWheelMode())?.inverted ?? false)
             DispatchQueue.main.async {
+                // Software invert is always available via config — do not gate
+                // the toggle on hasInvert; hasInvert only tells if hardware
+                // also inverts (hasInvert false just means we won't read hardware state).
+                self.unavailable = false
                 self.inverted = inverted
                 self.loaded = true
             }
