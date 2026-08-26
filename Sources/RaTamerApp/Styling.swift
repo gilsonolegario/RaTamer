@@ -89,8 +89,10 @@ struct TabBar: View {
                 }
                 .buttonStyle(.plain)
                 .focusable(false)
+                .focusEffectDisabled()
             }
         }
+        .focusSection()
     }
 }
 

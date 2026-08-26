@@ -19,6 +19,9 @@ final class SettingsWindow {
     func show() {
         makeWindowIfNeeded()
         window?.makeKeyAndOrderFront(nil)
+        // Defocus: prevents the first TabBar button from stealing first responder
+        // on open (its blue focus ring would otherwise look like a stuck selection).
+        window?.makeFirstResponder(nil)
         NSApp.activate(ignoringOtherApps: true)
         CrashReporter.addBreadcrumb("settings shown")
     }

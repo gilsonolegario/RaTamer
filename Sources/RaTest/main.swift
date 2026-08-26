@@ -26,6 +26,7 @@ final class RaTestWindow {
     func show(engine: RaTestEngine) {
         makeWindowIfNeeded(engine: engine)
         window?.makeKeyAndOrderFront(nil)
+        window?.makeFirstResponder(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
 
