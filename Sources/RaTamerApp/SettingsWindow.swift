@@ -13,7 +13,6 @@ final class SettingsWindow {
     private var resizeWorkItem: DispatchWorkItem?
     private var isLiveResizing = false
     private var mouseUpMonitor: Any?
-    private var lastTabSwitchTime: CFTimeInterval = 0
 
     private init() {}
 
@@ -31,16 +30,15 @@ final class SettingsWindow {
     private func makeWindowIfNeeded() {
         guard window == nil else { return }
         let view = SettingsView(
-            onTitleChange: { [weak self] title in
-                self?.window?.title = "RaTamer — \(title)"
-            },
             onContentHeight: { [weak self] height in
                 self?.scheduleResize(height)
             })
         let hosting = NSHostingController(rootView: view)
         hosting.sizingOptions = []
         let window = SettingsNSWindow(contentViewController: hosting)
-        window.title = "RaTamer — General"
+        // Static title: a per-tab title swaps centered text on every switch,
+        // and that repaint is what reads as the titlebar "flickering".
+        window.title = "RaTamer"
         // Compact utility window (Mos-like): content scrolls, the window doesn't
         // need to show every section at once. No frame autosave: the window
         // hugs each pane's content on open (a restored oversized frame would
@@ -67,43 +65,46 @@ final class SettingsWindow {
         }
     }
 
-    /// Record the moment a tab switch happened. scheduleResize ignores
-    /// geometry changes for 250ms after this to avoid flashing.
-    func recordTabSwitch() {
-        lastTabSwitchTime = CACurrentMediaTime()
-    }
-
     /// Debounced resize: batches rapid geometry changes into a single frame update.
-    /// During a tab-switch animation, delays the resize until the crossfade ends.
     private func scheduleResize(_ contentHeight: CGFloat) {
         guard !isLiveResizing else { return }
         resizeWorkItem?.cancel()
-        let delay: TimeInterval = (CACurrentMediaTime() - lastTabSwitchTime < 0.25) ? 0.2 : 0.05
         let work = DispatchWorkItem { [weak self] in
             self?.resizeToContent(contentHeight)
         }
         resizeWorkItem = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: work)
     }
 
-    /// Grows/shrinks the window vertically to hug the pane content, keeping
-    /// the title bar fixed (the frame grows downward).
+    /// Grows/shrinks the window vertically to hug the pane content.
+    /// Anchors the top edge and grows downward, but clamps to visible screen.
+    /// Guarded against live resize here (not just at scheduling) so a work
+    /// item already in flight can never fight a drag the user just started.
     private func resizeToContent(_ contentHeight: CGFloat) {
-        guard let window, contentHeight > 0 else { return }
+        guard let window, contentHeight > 0, !isLiveResizing else { return }
         let contentNow = window.contentView?.frame.height ?? window.frame.height
         let chrome = window.frame.height - contentNow
-        // Breathing room covers automatic ScrollView content margins that the
-        // geometry reader doesn't account for (empirically ~30-40pt).
-        var total = (contentHeight + chrome + 40).rounded(.up)
+        // The pane's measured height already includes its own bottom padding
+        // (SettingsView adds it inside the measurement); only rounding slack
+        // is added here. Margins outside the measurement were eliminated at
+        // the source, so this goes all the way to the last content row.
+        var total = (contentHeight + chrome + 6).rounded(.up)
         let visible = window.screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? .zero
         if visible.height > 0 {
-            total = min(total, visible.height - 24)
+            total = min(total, visible.height)
         }
         total = max(total, 340)
         let old = window.frame
         guard abs(old.height - total) > 1 else { return }
-        let newFrame = NSRect(x: old.minX, y: old.maxY - total,
+        // Anchor top edge; clamp bottom to not exceed visible screen
+        let newY = max(visible.minY, old.maxY - total)
+        let newFrame = NSRect(x: old.minX, y: newY,
                               width: old.width, height: total)
+        // Plan B: apply the frame in ONE coalesced stroke. Animating the
+        // NSWindow frame repaints the titlebar every animation frame, which
+        // reads as flicker no matter what else is debounced. All visible
+        // motion lives on the SwiftUI side instead: crossfade + vertical
+        // drift + sliding underline (see SettingsView / TabBar).
         window.setFrame(newFrame, display: false, animate: false)
     }
 }

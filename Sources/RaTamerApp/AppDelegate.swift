@@ -109,6 +109,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         editMenu.addItem(NSMenuItem(title: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v"))
         editMenu.addItem(NSMenuItem(title: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a"))
         editMenuItem.submenu = editMenu
+        let windowMenuItem = NSMenuItem()
+        mainMenu.addItem(windowMenuItem)
+        let windowMenu = NSMenu(title: "Window")
+        windowMenu.addItem(NSMenuItem(title: "Minimize",
+                                      action: #selector(NSWindow.performMiniaturize(_:)),
+                                      keyEquivalent: "m"))
+        windowMenu.addItem(.separator())
+        windowMenu.addItem(NSMenuItem(title: "Close Window",
+                                      action: #selector(NSWindow.performClose(_:)),
+                                      keyEquivalent: "w"))
+        windowMenuItem.submenu = windowMenu
         NSApp.mainMenu = mainMenu
     }
 

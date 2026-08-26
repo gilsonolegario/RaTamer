@@ -54,6 +54,9 @@ struct TabBar: View {
     let tabs: [String]
     @Binding var selection: String
     var tint: Color = .accentColor
+    // Shared geometry so the underline SLIDES between tabs instead of
+    // vanishing from one and appearing in the next.
+    @Namespace private var indicatorSpace
 
     var body: some View {
         HStack(spacing: 0) {
@@ -61,7 +64,7 @@ struct TabBar: View {
                 let isSelected = tab == selection
 
                 Button {
-                    withAnimation(.easeInOut(duration: 0.15)) {
+                    withAnimation(.easeInOut(duration: 0.2)) {
                         selection = tab
                     }
                 } label: {
@@ -69,10 +72,18 @@ struct TabBar: View {
                         Text(tab)
                             .font(.subheadline.weight(isSelected ? .semibold : .regular))
                             .foregroundStyle(isSelected ? tint : .secondary)
-                        Rectangle()
-                            .fill(isSelected ? tint : .clear)
-                            .frame(height: 2)
-                            .frame(maxWidth: .infinity)
+                        ZStack {
+                            Rectangle()
+                                .fill(.clear)
+                                .frame(height: 2)
+                            if isSelected {
+                                Rectangle()
+                                    .fill(tint)
+                                    .frame(height: 2)
+                                    .matchedGeometryEffect(id: "tab-underline", in: indicatorSpace)
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
                     }
                     .contentShape(Rectangle())
                 }
