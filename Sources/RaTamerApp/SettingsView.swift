@@ -33,11 +33,8 @@ struct SettingsView: View {
             .onGeometryChange(for: CGFloat.self) { proxy in
                 proxy.size.height
             } action: { height in
-                // Include the surrounding .padding(.top, 10) — the proxy
-                // reports the TabBar alone, so add the padding explicitly.
-                let padded = height + 10
-                if padded != tabBarHeight {
-                    tabBarHeight = padded
+                if height != tabBarHeight {
+                    tabBarHeight = height
                     reportTotalHeight()
                 }
             }

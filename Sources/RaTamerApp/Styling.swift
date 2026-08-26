@@ -78,6 +78,7 @@ struct TabBar: View {
                             .opacity(isSelected ? 1 : 0)
                             .matchedGeometryEffect(id: "tab-underline", in: indicatorSpace, isSource: isSelected)
                             .frame(maxWidth: .infinity)
+                            // reserva de altura já feita pela opacidade — sem retângulo clear fantasma
                     }
                     .contentShape(Rectangle())
                 }

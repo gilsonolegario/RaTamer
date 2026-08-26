@@ -64,9 +64,8 @@ struct RaTestView: View {
             .onGeometryChange(for: CGFloat.self) { proxy in
                 proxy.size.height
             } action: { height in
-                let padded = height + 10  // the .padding(.top) above
-                if padded != tabBarHeight {
-                    tabBarHeight = padded
+                if height != tabBarHeight {
+                    tabBarHeight = height
                     reportTotalHeight()
                 }
             }
