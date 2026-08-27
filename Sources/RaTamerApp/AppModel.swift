@@ -14,7 +14,8 @@ final class AppModel: ObservableObject {
     @Published var isConnected = false
     @Published var isReconnecting = false
     @Published var controls: [ControlInfo] = []
-    @Published var pressed = Set<UInt16>()
+    /// Isolated press state — only views that show pressed indicators observe this.
+    let pressMonitor = ButtonPressMonitor()
     @Published var deviceName = "HID++ device"
     @Published var capabilities = DeviceCapabilities(hasReprogrammableControls: false,
                                                      hasBattery: false,
@@ -58,10 +59,10 @@ final class AppModel: ObservableObject {
             DispatchQueue.main.async { self?.controls = controls }
         }
         engine.onButtonEvent = { [weak self] cid in
-            DispatchQueue.main.async { self?.pressed.insert(cid) }
+            DispatchQueue.main.async { self?.pressMonitor.pressed.insert(cid) }
         }
         engine.onButtonReleased = { [weak self] cid in
-            DispatchQueue.main.async { self?.pressed.remove(cid) }
+            DispatchQueue.main.async { self?.pressMonitor.pressed.remove(cid) }
         }
         _ = engine.start()
         self.engine = engine
@@ -88,4 +89,10 @@ final class AppModel: ObservableObject {
     func stopEngine() {
         engine?.stop()
     }
+}
+
+/// Isolated press state — only views that show pressed indicators observe this,
+/// avoiding unnecessary redraws in the rest of the app.
+final class ButtonPressMonitor: ObservableObject {
+    @Published var pressed = Set<UInt16>()
 }

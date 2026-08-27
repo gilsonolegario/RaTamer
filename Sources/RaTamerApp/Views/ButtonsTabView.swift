@@ -4,6 +4,7 @@ import SwiftUI
 
 struct ButtonsTabView: View {
     @ObservedObject private var model = AppModel.shared
+    @ObservedObject private var pressMonitor = AppModel.shared.pressMonitor
     @State private var config = AppModel.shared.configStore.load()
     @State private var shortcutControl: ControlInfo?
     @State private var gestureControl: ControlInfo?
@@ -144,7 +145,7 @@ struct ButtonsTabView: View {
         .padding(.vertical, 6)
         .padding(.horizontal, 8)
         .opacity(isVirtualGesture ? 0.55 : 1)
-        .background(model.pressed.contains(control.cid)
+        .background(pressMonitor.pressed.contains(control.cid)
                     ? Color.accentColor.opacity(0.35)
                     : Color.clear)
         .cornerRadius(6)
