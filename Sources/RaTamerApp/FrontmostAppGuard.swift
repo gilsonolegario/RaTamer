@@ -23,18 +23,58 @@ enum FrontmostAppGuard {
         "com.googlecode.iterm2",
         "net.kovidgoyal.kitty",
         "org.alacritty",
+        "io.alacritty",
         "com.mitchellh.ghostty",
+        "com.github.wez.wezterm",
         "io.wez.wezterm",
+        "dev.warp.Warp-Stable",
+        "dev.warp.Warp",
+        "dev.warp.Warp-Preview",
         "com.warp.Warp-Stable",
+        "org.tabby",
         "com.tabby.sh",
+        // Hybrid editors — their integrated terminals also receive keystrokes.
+        // Over-blocking (buttons dead in the editor) is safer than under-blocking
+        // (garbage typed into the terminal/tmux).
+        "com.microsoft.VSCode",
+        "com.microsoft.VSCodeInsiders",
+        "com.microsoft.VSCodium",
+        "com.vscodium.vscodium",
+        "dev.zed.Zed",
+        "dev.zed.Zed-Preview",
+        "dev.zed.Zed-Dev",
+        "com.todesktop.230313mzl4w4u92", // Cursor (Todesktop)
+        "com.google.antigravity-ide",
+        "co.zeit.hyper",
+        "com.vercel.hyper",
     ]
+
+    /// Test hook: whether a given bundle ID is considered a terminal.
+    static func isTerminalBundleID(_ bundleID: String) -> Bool {
+        terminalBundleIDs.contains(bundleID)
+    }
+
+    /// Invalidate the cached answer so the next query recomputes. Call when
+    /// the frontmost app changes (NSWorkspace.didActivateApplicationNotification).
+    static func invalidate() {
+        lock.lock()
+        cachedAt = .distantPast
+        lock.unlock()
+    }
 
     static func isFrontmostTerminal() -> Bool {
         lock.lock()
         defer { lock.unlock() }
         let now = Date()
         guard now.timeIntervalSince(cachedAt) < cacheTTL else {
-            let value = compute()
+            let value: Bool
+            if Thread.isMainThread {
+                value = compute()
+            } else {
+                var computed = false
+                DispatchQueue.main.sync { computed = compute() }
+                value = computed
+            }
             cachedResult = value
             cachedAt = now
             return value

@@ -435,7 +435,13 @@ final class EngineController {
 
     private func refreshConfig() {
         let config = configStore.load()
-        FrontmostAppGuard.isEnabled = config.protectTerminals ?? true
+        let newEnabled = config.protectTerminals ?? true
+        if FrontmostAppGuard.isEnabled != newEnabled {
+            FrontmostAppGuard.isEnabled = newEnabled
+            FrontmostAppGuard.invalidate()
+        } else {
+            FrontmostAppGuard.isEnabled = newEnabled
+        }
         configLock.lock()
         cachedConfig = config
         configLock.unlock()
@@ -663,6 +669,7 @@ final class EngineController {
     }
 
     private func handleFrontmostAppChanged() {
+        FrontmostAppGuard.invalidate()
         let isTerminal = FrontmostAppGuard.isFrontmostTerminal()
         ioQueue.async { [weak self] in
             guard let self, let service = self._hiResWheelService, !self.stopped else { return }
