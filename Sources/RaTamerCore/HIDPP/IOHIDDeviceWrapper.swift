@@ -5,43 +5,56 @@ public final class IOHIDDeviceWrapper: HIDDevice {
     public let productName: String?
     private let device: IOHIDDevice
     private let mailbox = HIDReportMailbox(capacity: 16)
-    private var buffer = [UInt8](repeating: 0, count: 64)
+    /// Stable, heap-allocated report buffer. A Swift `[UInt8]` array may relocate
+    /// its storage (copy-on-write) and leave the IOKit callback pointing at
+    /// freed memory; an explicit allocation stays put for the wrapper's life.
+    private let reportBufferSize = 64
+    private var reportBuffer: UnsafeMutablePointer<UInt8>?
     private var readThread: Thread!
-    private var runLoop: CFRunLoop!
+    private var runLoop: CFRunLoop?
     private let threadExited = DispatchSemaphore(value: 0)
+    /// Serialises access to `isClosed`/`runLoop` across the read thread and the
+    /// callers of `close()`, and guarantees `close()` only stops a run loop the
+    /// thread has actually published (`runLoopReady`) — so `CFRunLoopRun` can
+    /// never outlive the thread and become a zombie.
+    private let lock = NSLock()
+    private let runLoopReady = DispatchSemaphore(value: 0)
     private var isClosed = false
 
     public init(device: IOHIDDevice) {
         self.device = device
         self.productName = IOHIDDeviceGetProperty(device, kIOHIDProductKey as CFString) as? String
+        reportBuffer = UnsafeMutablePointer<UInt8>.allocate(capacity: reportBufferSize)
+        reportBuffer!.initialize(repeating: 0, count: reportBufferSize)
+        let context = Unmanaged.passUnretained(self).toOpaque()
+        IOHIDDeviceRegisterInputReportCallback(
+            device, reportBuffer!, reportBufferSize, { context, _, _, _, _, report, length in
+                guard let context else { return }
+                let wrapper = Unmanaged<IOHIDDeviceWrapper>.fromOpaque(context).takeUnretainedValue()
+                wrapper.enqueueReport(report, length: length)
+            }, context)
         self.readThread = Thread { [weak self] in
             guard let self else { return }
+            self.lock.lock()
             self.runLoop = CFRunLoopGetCurrent()
-            IOHIDDeviceScheduleWithRunLoop(self.device, self.runLoop,
+            let closed = self.isClosed
+            self.lock.unlock()
+            self.runLoopReady.signal()
+            IOHIDDeviceScheduleWithRunLoop(self.device, self.runLoop!,
                                            CFRunLoopMode.defaultMode.rawValue)
-            guard !self.isClosed else {
-                IOHIDDeviceUnscheduleFromRunLoop(self.device, self.runLoop,
+            guard !closed else {
+                IOHIDDeviceUnscheduleFromRunLoop(self.device, self.runLoop!,
                                                  CFRunLoopMode.defaultMode.rawValue)
                 self.threadExited.signal()
                 return
             }
             CFRunLoopRun()
-            IOHIDDeviceUnscheduleFromRunLoop(self.device, self.runLoop,
+            IOHIDDeviceUnscheduleFromRunLoop(self.device, self.runLoop!,
                                              CFRunLoopMode.defaultMode.rawValue)
             self.threadExited.signal()
         }
         self.readThread.name = "RaTamer.HIDRead"
         self.readThread.start()
-        self.buffer.withUnsafeMutableBufferPointer { bufferPtr in
-            guard let baseAddress = bufferPtr.baseAddress else { return }
-            let context = Unmanaged.passUnretained(self).toOpaque()
-            IOHIDDeviceRegisterInputReportCallback(
-                device, baseAddress, bufferPtr.count, { context, _, _, _, _, report, length in
-                    guard let context else { return }
-                    let wrapper = Unmanaged<IOHIDDeviceWrapper>.fromOpaque(context).takeUnretainedValue()
-                    wrapper.enqueueReport(report, length: length)
-                }, context)
-        }
     }
 
     deinit {
@@ -64,14 +77,28 @@ public final class IOHIDDeviceWrapper: HIDDevice {
     /// handle. Idempotent; the read thread is joined so no zombie survives a
     /// reconnect.
     public func close() {
-        guard !isClosed else { return }
+        lock.lock()
+        guard !isClosed else { lock.unlock(); return }
         isClosed = true
+        lock.unlock()
+
+        // Wait for the read thread to publish its run loop before stopping it,
+        // so we never call CFRunLoopStop(nil) and strand CFRunLoopRun.
+        _ = runLoopReady.wait(timeout: .now() + 5)
+        lock.lock()
         if let runLoop {
             CFRunLoopStop(runLoop)
         }
+        lock.unlock()
+
         // Closing the handle unregisters the input report callback.
         IOHIDDeviceClose(device, IOOptionBits(kIOHIDOptionsTypeNone))
         _ = threadExited.wait(timeout: .now() + 5)
+
+        if let reportBuffer {
+            reportBuffer.deallocate()
+            self.reportBuffer = nil
+        }
     }
 
     public func read(timeout: TimeInterval) throws -> [UInt8]? {

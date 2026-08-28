@@ -7,7 +7,7 @@ struct MenuBarPopoverView: View {
     @ObservedObject private var loginItem = LoginItem.shared
     @State private var hoveredRow: String?
     @State private var hoveredStatus = false
-    @State private var statusHoverHandler = HoverTaskHandler()
+    @StateObject private var statusHoverHandler = HoverTaskHandler()
     @State private var dpi: Double = 1000
     @State private var dpiValues: [UInt16] = []
     @State private var dpiLoaded = false
@@ -66,6 +66,9 @@ struct MenuBarPopoverView: View {
             actionRow(icon: "power", label: "Quit",
                       isHovered: hoveredRow == "quit",
                       onHover: { hoveredRow = $0 ? "quit" : nil }) {
+                // Tear down the process-lifetime keyboard-layout observer so it
+                // never outlives the engine (ActionEngine.shutdown is idempotent).
+                ActionEngine.shutdown()
                 NSApp.terminate(nil)
             }
         }
@@ -76,7 +79,10 @@ struct MenuBarPopoverView: View {
             BatteryMonitor.shared.start()
             loadDPI()
         }
-        .onDisappear { BatteryMonitor.shared.stop() }
+        .onDisappear {
+            BatteryMonitor.shared.stop()
+            statusHoverHandler.cancel()
+        }
     }
 
     private var separator: some View {

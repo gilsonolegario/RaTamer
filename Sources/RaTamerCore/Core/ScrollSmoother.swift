@@ -164,6 +164,7 @@ public final class ScrollSmoother {
     }
 
     private static let debugLog = Logger(subsystem: "com.rattamer", category: "smoothdebug")
+    private static let enableDebugLogging = false
 
     /// Stabilizes a raw pixel value against the mechanical detent bounce of a
     /// ratcheted wheel: small opposite-direction pulses arriving shortly after
@@ -173,7 +174,11 @@ public final class ScrollSmoother {
     /// which case it must not reseed momentum).
     private func stabilized(_ raw: Double, at now: Date)
         -> (pixels: Double, isBounce: Bool, reversed: Bool, accepted: Bool) {
+        if Self.enableDebugLogging {
+            #if DEBUG
         Self.debugLog.info("stabilized raw=\(raw, format: .fixed(precision: 1)) dir=\(self.direction) oppCount=\(self.oppositeCount) lastMag=\(self.lastAcceptedMagnitude, format: .fixed(precision: 1)) window=\(self.parameters.bounceWindow) ratio=\(self.parameters.bounceRatio)")
+        #endif
+        }
         var pixels = raw
         let sign = raw > 0 ? 1 : (raw < 0 ? -1 : 0)
         let directionBefore = direction

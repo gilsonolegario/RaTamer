@@ -15,10 +15,14 @@ final class BatteryMonitor: ObservableObject {
     func start() {
         guard timer == nil else { return }
         refresh()
-        timer = Timer.scheduledTimer(withTimeInterval: Self.interval, repeats: true) {
-            [weak self] _ in
+        // `scheduledTimer` only fires in the default run-loop mode, so it
+        // stalls while the user is dragging a slider or scrolling (event
+        // tracking). Register in the common modes so the poll keeps running.
+        let poll = Timer(timeInterval: Self.interval, repeats: true) { [weak self] _ in
             self?.refresh()
         }
+        RunLoop.main.add(poll, forMode: .common)
+        timer = poll
     }
 
     func stop() {
@@ -27,8 +31,11 @@ final class BatteryMonitor: ObservableObject {
     }
 
     private func refresh() {
+        // `refresh` is always called on the main thread (Timer on main run loop),
+        // so capturing the service here before hopping to background is safe.
+        let service = AppModel.shared.engine?.batteryStatusService
         DispatchQueue.global(qos: .utility).async { [weak self] in
-            guard let service = AppModel.shared.engine?.batteryStatusService else {
+            guard let service else {
                 DispatchQueue.main.async { self?.info = nil }
                 return
             }

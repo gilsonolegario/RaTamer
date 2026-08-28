@@ -40,6 +40,7 @@ struct SegmentedPillPicker<Item: Hashable>: View {
                                         .fill(.quaternary)
                                 }
                             }
+                            .contentShape(Capsule())
                     }
                     .buttonStyle(.plain)
                 }
@@ -76,7 +77,7 @@ struct TabBar: View {
                             .fill(tint)
                             .frame(height: 2)
                             .opacity(isSelected ? 1 : 0)
-                            .matchedGeometryEffect(id: "tab-underline", in: indicatorSpace, isSource: isSelected)
+                            .matchedGeometryEffect(id: "tab-underline", in: indicatorSpace, isSource: true)
                             .frame(maxWidth: .infinity)
                             // reserva de altura já feita pela opacidade — sem retângulo clear fantasma
                     }
@@ -122,6 +123,7 @@ struct SegmentedPillRow: View {
                                     .fill(.quaternary)
                             }
                         }
+                        .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)
             }

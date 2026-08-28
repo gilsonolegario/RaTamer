@@ -30,6 +30,11 @@ public final class HiResWheel {
     private let session: HIDPPSession
     private let deviceIndex: UInt8
     private let featureIndex: UInt8
+    /// Serialises the read-modify-write pairs in `setInverted`/`setWheelMode`.
+    /// The EngineController already serialises these on its ioQueue, but the lock
+    /// keeps them atomic if a caller invokes them from outside that queue, so a
+    /// concurrent call can't clobber the wheel-mode bits mid-update.
+    private let lock = NSLock()
 
     public init(session: HIDPPSession, deviceIndex: UInt8, featureIndex: UInt8) {
         self.session = session
@@ -66,6 +71,8 @@ public final class HiResWheel {
     }
 
     public func setInverted(_ inverted: Bool) throws {
+        lock.lock()
+        defer { lock.unlock() }
         guard let resp = try session.request(deviceIndex: deviceIndex,
                                              featureIndex: featureIndex,
                                              functionID: 0x01),
@@ -90,6 +97,8 @@ public final class HiResWheel {
     /// `target = true` the device stops emitting native HID wheel events, which
     /// is the double-scroll suppression mechanism.
     public func setWheelMode(highResolution: Bool, target: Bool) throws {
+        lock.lock()
+        defer { lock.unlock() }
         guard let resp = try session.request(deviceIndex: deviceIndex,
                                              featureIndex: featureIndex,
                                              functionID: 0x01),

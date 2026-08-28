@@ -16,8 +16,10 @@ final class ScrollGraphWindow: NSObject, NSWindowDelegate {
         makeWindowIfNeeded()
         refreshSmoothFlag()
         startConfigPoll()
-        AppModel.shared.engine?.scrollSampleSink = { [weak store] sample in
-            store?.add(sample)
+        MainActor.assumeIsolated {
+            AppModel.shared.engine?.scrollSampleSink = { [weak store] sample in
+                store?.add(sample)
+            }
         }
         store.start()
         window?.makeKeyAndOrderFront(nil)
@@ -25,13 +27,16 @@ final class ScrollGraphWindow: NSObject, NSWindowDelegate {
     }
 
     func windowWillClose(_ notification: Notification) {
-        AppModel.shared.engine?.scrollSampleSink = nil
+        MainActor.assumeIsolated { AppModel.shared.engine?.scrollSampleSink = nil }
         stopConfigPoll()
         store.stop()
     }
 
     private func refreshSmoothFlag() {
-        store.smoothEnabled = AppModel.shared.configStore.load().smoothScrollEnabled == true
+        let enabled = MainActor.assumeIsolated {
+            AppModel.shared.configStore.load().smoothScrollEnabled == true
+        }
+        store.smoothEnabled = enabled
     }
 
     /// 1 Hz refresh of the smooth flag so the empty-state warning reacts to
@@ -41,6 +46,9 @@ final class ScrollGraphWindow: NSObject, NSWindowDelegate {
         let poll = Timer(timeInterval: 1.0, repeats: true) { [weak self] _ in
             self?.refreshSmoothFlag()
         }
+        // Tolerance lets the run loop coalesce the 1 Hz tick with other work;
+        // .common mode keeps it firing during event tracking.
+        poll.tolerance = 0.2
         RunLoop.main.add(poll, forMode: .common)
         configPoll = poll
     }

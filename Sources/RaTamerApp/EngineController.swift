@@ -31,12 +31,18 @@ final class EngineController {
     /// Where live scroll samples (raw + output) are forwarded while the
     /// scroll graph is visible. Wired by ScrollGraphView on appear/disappear.
     var scrollSampleSink: ((ScrollSample) -> Void)?
-    private var stopped = false
+    private var _stopped = false
+    private let stoppedLock = NSLock()
+    private var stopped: Bool {
+        get { stoppedLock.lock(); defer { stoppedLock.unlock() }; return _stopped }
+        set { stoppedLock.lock(); _stopped = newValue; stoppedLock.unlock() }
+    }
     private var _enabled = true
     private let enabledLock = NSLock()
     private var cachedConfig: Config
     private let configLock = NSLock()
     private let ioQueue = DispatchQueue(label: "com.rattamer.io")
+    private let timerLock = NSLock()
     private var watchdog: ConnectionWatchdog?
     private var pingTimer: DispatchSourceTimer?
     private var frontmostObserver: NSObjectProtocol?
@@ -393,9 +399,11 @@ final class EngineController {
         stopped = true
         retryGeneration += 1
         cancelRecovery()
+        timerLock.lock()
         pingTimer?.cancel()
         pingTimer = nil
         watchdog = nil
+        timerLock.unlock()
         stopFrontmostObserver()
         stopWakeObserver()
         restoreNativeDiverts()
@@ -403,8 +411,14 @@ final class EngineController {
         gestureDetector.end()
         gestureCID = nil
         scrollWheelTap?.stop()
+        ActionEngine.shutdown()
         session?.wake()
-        loopExitSignal?.wait()
+        if let signal = loopExitSignal {
+            let result = signal.wait(timeout: .now() + 2)
+            if result == .timedOut {
+                Self.log.error("loop thread failed to exit within 2s")
+            }
+        }
         loopExitSignal = nil
         loopThread = nil
         monitor = nil
@@ -576,13 +590,18 @@ final class EngineController {
     /// Applies a new parameter set live without rebuilding the coordinator,
     /// so slider tweaks take effect without stopping in-flight momentum.
     /// `multiplier` and `invert` are always re-derived here, never trusted
-    /// from the caller.
+    /// from the caller. The HID read is dispatched off the caller (main) so a
+    /// slow receiver never blocks the UI.
     func updateSmoothParameters(_ parameters: ScrollSmoother.Parameters) {
         guard let service = _hiResWheelService else { return }
-        var params = parameters
-        params.multiplier = (try? service.getInfo())?.multiplier ?? 8
-        params.invert = softwareScrollInvert()
-        smoothCoordinator?.setParameters(params)
+        let invert = softwareScrollInvert()
+        ioQueue.async { [weak self] in
+            guard let self else { return }
+            var params = parameters
+            params.multiplier = (try? service.getInfo())?.multiplier ?? 8
+            params.invert = invert
+            self.smoothCoordinator?.setParameters(params)
+        }
     }
 
     /// Software-side inversion for the smooth-scroll (diverted) path. The
@@ -719,7 +738,9 @@ final class EngineController {
                 self?.onStatus?("Connected — \(self?.controls.count ?? 0) controls")
             }
         }
+        timerLock.lock()
         self.watchdog = watchdog
+        timerLock.unlock()
 
         let timer = DispatchSource.makeTimerSource(queue: ioQueue)
         timer.schedule(deadline: .now() + Self.pingInterval,
@@ -728,10 +749,15 @@ final class EngineController {
         timer.setEventHandler { [weak self] in
             guard let self, let session = self.session, !self.stopped else { return }
             let answered = (try? session.ping(deviceIndex: self.deviceIndex)) ?? false
-            self.watchdog?.report(ok: answered)
+            self.timerLock.lock()
+            let wd = self.watchdog
+            self.timerLock.unlock()
+            wd?.report(ok: answered)
         }
         timer.resume()
+        timerLock.lock()
         pingTimer = timer
+        timerLock.unlock()
     }
 
     private func startLoopThread(monitor: DivertedButtonMonitor) {
@@ -742,9 +768,11 @@ final class EngineController {
             guard let self else { return }
             guard let session = self.session else { return }
             while !self.stopped {
-                if var report = try? session.readReport(timeout: .greatestFiniteMagnitude) {
-                    _ = monitor.feed(report)
-                    session.recycle(&report)
+                autoreleasepool {
+                    if var report = try? session.readReport(timeout: .greatestFiniteMagnitude) {
+                        _ = monitor.feed(report)
+                        session.recycle(&report)
+                    }
                 }
             }
         }

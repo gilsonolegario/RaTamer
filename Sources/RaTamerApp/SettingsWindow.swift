@@ -13,6 +13,7 @@ final class SettingsWindow {
     private var resizeWorkItem: DispatchWorkItem?
     private var isLiveResizing = false
     private var mouseUpMonitor: Any?
+    private var resizeObserver: NSObjectProtocol?
 
     private init() {}
 
@@ -25,7 +26,25 @@ final class SettingsWindow {
     }
 
     func close() {
+        teardownObservers()
         window?.close()
+    }
+
+    deinit {
+        teardownObservers()
+    }
+
+    private func teardownObservers() {
+        if let monitor = mouseUpMonitor {
+            NSEvent.removeMonitor(monitor)
+            mouseUpMonitor = nil
+        }
+        if let observer = resizeObserver {
+            NotificationCenter.default.removeObserver(observer)
+            resizeObserver = nil
+        }
+        resizeWorkItem?.cancel()
+        isLiveResizing = false
     }
 
     private func makeWindowIfNeeded() {
@@ -54,7 +73,7 @@ final class SettingsWindow {
         // Track user drags: hugging the content height mid-drag is what made
         // every resize look like a reflow dance (window snaps under the cursor).
         let center = NotificationCenter.default
-        center.addObserver(forName: NSWindow.willStartLiveResizeNotification,
+        resizeObserver = center.addObserver(forName: NSWindow.willStartLiveResizeNotification,
                            object: window, queue: .main) { [weak self] _ in
             self?.isLiveResizing = true
         }

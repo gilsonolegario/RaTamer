@@ -10,6 +10,8 @@ enum CrashReporter {
     private static var heartbeat = Date()
     private static var hanging = false
     private static let heartbeatLock = NSLock()
+    private static var pokeTimer: Timer?
+    private static var hangSource: DispatchSourceTimer?
 
     private static var logURL: URL {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
@@ -74,6 +76,7 @@ enum CrashReporter {
             heartbeatLock.unlock()
         }
         RunLoop.main.add(timer, forMode: .common)
+        pokeTimer = timer
     }
 
     private static func startHangWatchdog() {
@@ -96,6 +99,16 @@ enum CrashReporter {
             }
         }
         source.resume()
+        hangSource = source
+    }
+
+    /// Tears down the watchdog timers. Called on quit so the heartbeat timer
+    /// and the hang-monitor source don't linger for the process lifetime.
+    static func stop() {
+        pokeTimer?.invalidate()
+        pokeTimer = nil
+        hangSource?.cancel()
+        hangSource = nil
     }
 
     // MARK: - File plumbing

@@ -275,15 +275,16 @@ public struct Config: Codable, Equatable {
 
     public mutating func migrateLegacy() -> Bool {
         var changed = false
+        let isLegacy = version < 2
         if let dpiAction, buttons[cidKey(ControlCID.dpiButton)] == nil {
             buttons[cidKey(ControlCID.dpiButton)] = dpiAction
             self.dpiAction = nil
             changed = true
-        } else if dpiFeatureIndex != nil, buttons[cidKey(ControlCID.dpiButton)] == nil {
+        } else if isLegacy, dpiFeatureIndex != nil, buttons[cidKey(ControlCID.dpiButton)] == nil {
             buttons[cidKey(ControlCID.dpiButton)] = .shortcut(key: "w", modifiers: ["command"])
             changed = true
         }
-        if thumbWheelLeft == nil && thumbWheelRight == nil {
+        if isLegacy, thumbWheelLeft == nil && thumbWheelRight == nil {
             thumbWheelLeft = .system("volumeDownSmall")
             thumbWheelRight = .system("volumeUpSmall")
             changed = true
@@ -328,10 +329,17 @@ public final class ConfigStore {
             return empty
         }
         guard let decoded = try? JSONDecoder().decode(Config.self, from: data) else {
-            // Corrupted file: back it up instead of silently overwriting the
-            // user's config with defaults on the next save.
-            try? FileManager.default.moveItem(at: fileURL,
-                                              to: fileURL.appendingPathExtension("corrupt"))
+            // Corrupted file: back it up with a unique name so repeated
+            // corruptions don't overwrite the previous backup.
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            let stamp = formatter.string(from: Date()).replacingOccurrences(of: ":", with: "-")
+            let backupURL = fileURL.appendingPathExtension("corrupt.\(stamp)")
+            try? FileManager.default.moveItem(at: fileURL, to: backupURL)
+            let plainCorrupt = fileURL.appendingPathExtension("corrupt")
+            if !FileManager.default.fileExists(atPath: plainCorrupt.path) {
+                try? FileManager.default.copyItem(at: backupURL, to: plainCorrupt)
+            }
             let empty = Config.empty()
             store(cached: empty, mtime: nil)
             return empty
@@ -359,6 +367,7 @@ public final class ConfigStore {
         try data.write(to: fileURL, options: .atomic)
         store(cached: config, mtime: fileModificationDate())
     }
+
 
     private func fileModificationDate() -> Date? {
         (try? FileManager.default.attributesOfItem(atPath: fileURL.path))?[.modificationDate] as? Date

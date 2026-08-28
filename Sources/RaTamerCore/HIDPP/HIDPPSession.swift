@@ -1,8 +1,11 @@
 import Foundation
+import os
 
 public enum HIDPPSessionError: Error {
     case noResponse
 }
+
+private let sessionLog = Logger(subsystem: "RaTamer", category: "HIDPPSession")
 
 public final class HIDPPSession {
     public let device: HIDDevice
@@ -82,16 +85,34 @@ public final class HIDPPSession {
         try sendLong(deviceIndex: deviceIndex, featureIndex: featureIndex,
                      functionID: functionID, params: params)
         let deadline = Date().addingTimeInterval(timeout)
+        var sawMismatch = false
         while Date() < deadline {
             let remaining = max(0, deadline.timeIntervalSinceNow)
             guard let resp = try device.readForRequest(timeout: min(0.1, remaining)) else { continue }
+            // Any reply that doesn't match this request is a *mismatch* (likely
+            // another request's reply, or unsolicited traffic) — never a success.
+            // We keep draining so a matching reply can still arrive before the
+            // deadline. Distinguishing mismatch from pure timeout matters: a
+            // mismatch means the device answered, but for the wrong query, and
+            // must not be reported as "feature absent".
             guard resp.count >= 4,
                   resp[1] == deviceIndex,
                   resp[2] == featureIndex,
-                  resp[3] >> 4 == functionID else { continue }
+                  resp[3] >> 4 == functionID else {
+                sawMismatch = true
+                continue
+            }
             let sw = resp[3] & 0x0F
-            guard sw == softwareID || sw == 0 else { continue }
+            guard sw == softwareID || sw == 0 else {
+                sawMismatch = true
+                continue
+            }
             return resp
+        }
+        if sawMismatch {
+            sessionLog.warning("request timed out after mismatched replies (deviceIndex=0x\(String(deviceIndex, radix: 16, uppercase: true)) featureIndex=0x\(String(featureIndex, radix: 16, uppercase: true)) functionID=0x\(String(functionID, radix: 16, uppercase: true))) — reply matched a different query; NOT treated as feature absent")
+        } else {
+            sessionLog.debug("request timed out with no matching reply (deviceIndex=0x\(String(deviceIndex, radix: 16, uppercase: true)) featureIndex=0x\(String(featureIndex, radix: 16, uppercase: true)) functionID=0x\(String(functionID, radix: 16, uppercase: true)))")
         }
         return nil
     }

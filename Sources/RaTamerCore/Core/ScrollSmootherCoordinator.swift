@@ -15,6 +15,7 @@ public final class ScrollSmootherCoordinator {
     private let now: () -> Date
     private let poster: (Double) -> Void
     private let queue = DispatchQueue(label: "com.rattamer.smoothscroll")
+    private let queueKey = DispatchSpecificKey<Void>()
     private var timer: DispatchSourceTimer?
 
     /// Called on the coordinator's queue with one sample per raw wheel
@@ -28,6 +29,7 @@ public final class ScrollSmootherCoordinator {
         self.smoother = smoother
         self.now = now
         self.poster = poster
+        queue.setSpecific(key: queueKey, value: ())
     }
 
     public func onWheelMovement(_ movement: WheelMovement) {
@@ -68,19 +70,25 @@ public final class ScrollSmootherCoordinator {
             self.timer?.cancel()
             self.timer = nil
             self.smoother.reset()
+            Self.log.info("smooth scroll timer stopped")
         }
-        Self.log.info("smooth scroll timer stopped")
     }
 
     /// Runs a closure on the coordinator's serial queue and returns its result,
     /// keeping smoother access on the queue that owns it.
     func synchronized<T>(_ body: (ScrollSmoother) -> T) -> T {
-        queue.sync { body(smoother) }
+        if DispatchQueue.getSpecific(key: queueKey) != nil {
+            return body(smoother)
+        }
+        return queue.sync { body(smoother) }
     }
 
-    /// Whether the tick timer is currently armed. Read on the owning queue.
+    /// Whether the tick timer is currently armed.
     var isTicking: Bool {
-        queue.sync { timer != nil }
+        if DispatchQueue.getSpecific(key: queueKey) != nil {
+            return timer != nil
+        }
+        return queue.sync { timer != nil }
     }
 
     private func startTimerIfNeeded() {

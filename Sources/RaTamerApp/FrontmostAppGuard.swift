@@ -64,22 +64,26 @@ enum FrontmostAppGuard {
 
     static func isFrontmostTerminal() -> Bool {
         lock.lock()
-        defer { lock.unlock() }
         let now = Date()
-        guard now.timeIntervalSince(cachedAt) < cacheTTL else {
-            let value: Bool
-            if Thread.isMainThread {
-                value = compute()
-            } else {
-                var computed = false
-                DispatchQueue.main.sync { computed = compute() }
-                value = computed
-            }
+        let isExpired = now.timeIntervalSince(cachedAt) >= cacheTTL
+        let cached = cachedResult
+        lock.unlock()
+        guard isExpired else { return cached }
+        let value: Bool
+        if Thread.isMainThread {
+            value = compute()
+        } else {
+            var computed = false
+            DispatchQueue.main.sync { computed = compute() }
+            value = computed
+        }
+        lock.lock()
+        if now.timeIntervalSince(cachedAt) >= 0 {
             cachedResult = value
             cachedAt = now
-            return value
         }
-        return cachedResult
+        lock.unlock()
+        return value
     }
 
     private static func compute() -> Bool {

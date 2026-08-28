@@ -70,19 +70,23 @@ final class AppModel: ObservableObject {
     }
 
     func preloadDPI() {
+        // Capture the service and stored DPI on the calling (main) thread before
+        // hopping to background. `startEngine` is always called on main, so this
+        // is safe without additional synchronization.
+        let service = engine?.dpiService
+        let stored = configStore.load().dpiValue
         DispatchQueue.global(qos: .utility).async { [weak self] in
-            guard let self, let service = self.engine?.dpiService else { return }
+            guard let service else { return }
             let values = (try? service.getSensorDpiList(sensor: 0)) ?? []
             guard values.count > 1 else { return }
             var value = 1000.0
-            let stored = self.configStore.load().dpiValue
             if let stored {
                 value = Double(stored)
             } else if let info = try? service.getSensorDpi(sensor: 0) {
                 value = Double(info.dpi)
             }
             let cache = DPICache(values: values, value: value)
-            DispatchQueue.main.async { self.dpiCache = cache }
+            DispatchQueue.main.async { self?.dpiCache = cache }
         }
     }
 

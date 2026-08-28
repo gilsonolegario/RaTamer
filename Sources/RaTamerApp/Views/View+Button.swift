@@ -25,57 +25,20 @@ extension View {
     }
 }
 
-/// Custom button style that provides visual press feedback with a minimum
-/// duration. Ensures the press effect is visible for at least the specified
-/// duration, even for quick clicks.
+/// Custom button style that provides visual press feedback.
+///
+/// Uses `configuration.isPressed` directly. `ButtonStyle` is a value type
+/// rebuilt on every body pass, so it must not keep press state in `@State`
+/// — a stored `@State` would not survive the struct recreation and the press
+/// effect would flicker or get stuck.
 struct PressedButtonStyle: ButtonStyle {
     let scale: CGFloat
     let minimumDuration: TimeInterval
 
-    @State private var isVisuallyPressed: Bool = false
-    @State private var pressEndTask: Task<Void, Never>? = nil
-
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(isVisuallyPressed ? scale : 1.0)
-            .animation(.interactiveSpring, value: isVisuallyPressed)
-            .onChange(of: configuration.isPressed) { _, isPhysicallyPressed in
-                if isPhysicallyPressed {
-                    pressEndTask?.cancel()
-                    pressEndTask = nil
-
-                    if !isVisuallyPressed {
-                        isVisuallyPressed = true
-                    }
-                } else {
-                    guard isVisuallyPressed else {
-                        return
-                    }
-
-                    pressEndTask = Task {
-                        do {
-                            try await Task.sleep(for: .seconds(minimumDuration))
-                            try Task.checkCancellation()
-
-                            isVisuallyPressed = false
-                        } catch is CancellationError {
-                            // NO-OP
-                        } catch {
-                            isVisuallyPressed = false
-                        }
-
-                        pressEndTask = nil
-                    }
-                }
-            }
-            .onAppear {
-                if configuration.isPressed, !isVisuallyPressed {
-                    isVisuallyPressed = true
-                }
-            }
-            .onDisappear {
-                pressEndTask?.cancel()
-            }
+            .scaleEffect(configuration.isPressed ? scale : 1.0)
+            .animation(.interactiveSpring, value: configuration.isPressed)
     }
 }
 

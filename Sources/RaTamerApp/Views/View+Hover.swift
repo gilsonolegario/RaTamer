@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Manages hover events with debouncing to prevent rapid triggering.
 /// Cancels any pending hover action when hover state changes.
-final class HoverTaskHandler {
+final class HoverTaskHandler: ObservableObject {
     private var currentTask: Task<Void, Never>?
 
     /// Handles hover state changes with an optional delay before executing the

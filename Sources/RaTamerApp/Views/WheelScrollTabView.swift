@@ -51,6 +51,7 @@ struct WheelScrollTabView: View {
         }
         .formStyle(.grouped)
         .onAppear(perform: load)
+        .onDisappear { persistTask?.cancel() }
     }
 
     // MARK: - Sections
@@ -405,11 +406,11 @@ struct InvertScrollToggleRow: View {
             }
         }
         .onAppear {
-            print("[InvertScroll] onAppear isConnected=\(model.isConnected) hasService=\(AppModel.shared.engine?.hiResWheelService != nil)")
+            
             load()
         }
         .onChange(of: model.isConnected) { _, connected in
-            print("[InvertScroll] isConnected=\(connected)")
+            
             if connected {
                 unavailable = false
                 loaded = false
@@ -420,14 +421,13 @@ struct InvertScrollToggleRow: View {
 
     private func load() {
         guard let service = AppModel.shared.engine?.hiResWheelService else {
-            print("[InvertScroll] no hiResWheelService — will retry when connected")
             unavailable = false
             return
         }
+        let stored = AppModel.shared.configStore.load().invertScrollDirection
         DispatchQueue.global(qos: .utility).async {
             let hasInvert = (try? service.getInfo())?.hasInvert == true
-            print("[InvertScroll] hasInvert=\(hasInvert)")
-            let stored = AppModel.shared.configStore.load().invertScrollDirection
+            _ = hasInvert
             let inverted = stored ?? ((try? service.getWheelMode())?.inverted ?? false)
             DispatchQueue.main.async {
                 // Software invert is always available via config — do not gate
