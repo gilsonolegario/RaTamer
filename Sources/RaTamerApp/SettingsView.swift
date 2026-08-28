@@ -33,22 +33,21 @@ struct SettingsView: View {
             .onGeometryChange(for: CGFloat.self) { proxy in
                 proxy.size.height
             } action: { height in
-                if height != tabBarHeight {
-                    tabBarHeight = height
-                    reportTotalHeight()
-                }
+                guard abs(height - tabBarHeight) >= 0.5 else { return }
+                tabBarHeight = height
+                reportTotalHeight()
             }
 
-            // All panes stay alive — the crossfade is a pure opacity
-            // transition with no teardown/recreation. The 8pt vertical drift
-            // gives the incoming pane directional movement (rises into place)
-            // instead of a static fade.
+            // All panes stay alive — smooth crossfade with vertical drift.
+            // Explicit spring keeps the pane transition independent from the
+            // TabBar's underline animation.
             ZStack(alignment: .top) {
                 ForEach(tabs, id: \.self) { tab in
                     tabContent(for: tab)
                         .opacity(selection == tab ? 1 : 0)
-                        .offset(y: selection == tab ? 0 : 8)
+                        .offset(y: selection == tab ? 0 : 6)
                         .allowsHitTesting(selection == tab)
+                        .animation(.spring(response: 0.36, dampingFraction: 0.86, blendDuration: 0.1), value: selection)
                 }
             }
         }
@@ -91,6 +90,7 @@ struct SettingsView: View {
             .onGeometryChange(for: CGFloat.self) { proxy in
                 proxy.size.height
             } action: { height in
+                if let old = contentHeights[tab], abs(old - height) < 0.5 { return }
                 contentHeights[tab] = height
                 if selection == tab {
                     reportTotalHeight()

@@ -65,7 +65,7 @@ struct TabBar: View {
                 let isSelected = tab == selection
 
                 Button {
-                    withAnimation(.easeInOut(duration: 0.2)) {
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.85, blendDuration: 0)) {
                         selection = tab
                     }
                 } label: {
@@ -73,13 +73,21 @@ struct TabBar: View {
                         Text(tab)
                             .font(.subheadline.weight(isSelected ? .semibold : .regular))
                             .foregroundStyle(isSelected ? tint : .secondary)
-                        Rectangle()
-                            .fill(tint)
+                        // Single underline per selection via matchedGeometry:
+                        // only the selected tab hosts the rectangle, the
+                        // geometry effect slides it between hosts without
+                        // needing multiple competing sources.
+                        Color.clear
                             .frame(height: 2)
-                            .opacity(isSelected ? 1 : 0)
-                            .matchedGeometryEffect(id: "tab-underline", in: indicatorSpace, isSource: true)
                             .frame(maxWidth: .infinity)
-                            // reserva de altura já feita pela opacidade — sem retângulo clear fantasma
+                            .overlay(alignment: .bottom) {
+                                if isSelected {
+                                    Rectangle()
+                                        .fill(tint)
+                                        .frame(height: 2)
+                                        .matchedGeometryEffect(id: "tab-underline", in: indicatorSpace)
+                                }
+                            }
                     }
                     .contentShape(Rectangle())
                 }

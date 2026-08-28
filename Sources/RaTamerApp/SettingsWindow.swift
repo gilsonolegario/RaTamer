@@ -91,11 +91,15 @@ final class SettingsWindow {
     /// são criados de uma vez na main thread e deixam a UI engasgada se a janela
     /// tentar acompanhar no mesmo frame da animação do disclosure. Nesses casos
     /// alonga o debounce para a janela só `hug` depois da animação terminar.
+    /// Jitter <1pt (0.5pt fractional rounding from Form) is ignored to break the
+    /// feedback loop where window resize -> Form re-layout -> 0.5pt height change
+    /// -> another resize -> jank.
     private func scheduleResize(_ contentHeight: CGFloat) {
         guard !isLiveResizing else { return }
-        resizeWorkItem?.cancel()
         let delta = abs(contentHeight - lastContentHeight)
-        let delay: TimeInterval = delta > 140 ? 0.22 : 0.05
+        guard delta >= 1 else { return }
+        resizeWorkItem?.cancel()
+        let delay: TimeInterval = delta > 140 ? 0.08 : 0.02
         lastContentHeight = contentHeight
         let work = DispatchWorkItem { [weak self] in
             self?.resizeToContent(contentHeight)
