@@ -17,8 +17,19 @@ final class ConfigStoreTests: XCTestCase {
     }
 
     func testLoadReturnsEmptyWhenFileMissing() {
-        let store = ConfigStore(fileURL: tempDir.appendingPathComponent("nope.json"))
-        XCTAssertEqual(store.load(), Config.empty())
+        let url = tempDir.appendingPathComponent("nope.json")
+        let store = ConfigStore(fileURL: url)
+        XCTAssertEqual(store.load(), Config.freshDefaults())
+        // Fresh defaults are persisted so a first run starts working.
+        XCTAssertTrue(FileManager.default.fileExists(atPath: url.path))
+    }
+
+    func testFreshDefaultsNavigateBackForward() {
+        let fresh = Config.freshDefaults()
+        XCTAssertEqual(fresh.action(forCID: ControlCID.back),
+                       .shortcut(key: "[", modifiers: ["command"]))
+        XCTAssertEqual(fresh.action(forCID: ControlCID.forward),
+                       .shortcut(key: "]", modifiers: ["command"]))
     }
 
     func testSaveThenLoadRoundTrip() throws {
@@ -452,6 +463,6 @@ final class ConfigStoreTests: XCTestCase {
         try store.save(config)
         XCTAssertEqual(store.load().dpiValue, 1000)
         try FileManager.default.removeItem(at: url)
-        XCTAssertEqual(store.load(), Config.empty())
+        XCTAssertEqual(store.load(), Config.freshDefaults())
     }
 }

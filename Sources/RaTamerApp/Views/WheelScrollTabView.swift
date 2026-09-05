@@ -51,6 +51,16 @@ struct WheelScrollTabView: View {
         }
         .formStyle(.grouped)
         .onAppear(perform: load)
+        .onChange(of: model.isConnected) { _, connected in
+            // The guard in load() marks the tab unavailable when opened
+            // before the engine connects; reload so smooth toggle, slider
+            // and presets appear without closing Settings.
+            if connected {
+                loaded = false
+                unavailable = false
+                load()
+            }
+        }
         .onDisappear { persistTask?.cancel() }
     }
 

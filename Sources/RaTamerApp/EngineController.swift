@@ -244,7 +244,7 @@ final class EngineController {
                 scrollWheelTap?.start()
                 onStatus?("Connected — \(controls.count) controls")
             } else {
-                onStatus?("Connected — conceda Acessibilidade para atalhos/gestos")
+                onStatus?("Connected — grant Accessibility for shortcuts/gestures")
             }
             return true
         } catch {

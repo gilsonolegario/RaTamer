@@ -249,6 +249,22 @@ public struct Config: Codable, Equatable {
         return Config(version: 1, deviceIndex: nil, buttons: [:])
     }
 
+    /// First-run defaults (Logitech-like): Back/Forward navigate (macOS
+    /// native buttons do nothing without Logitech Options) and the thumb
+    /// wheel drives volume, matching migrateLegacy. Only used when no
+    /// config file exists yet — existing installs are untouched.
+    public static func freshDefaults() -> Config {
+        var config = Config(version: 2, deviceIndex: nil, buttons: [
+            String(format: "0x%04X", ControlCID.back):
+                .shortcut(key: "[", modifiers: ["command"]),
+            String(format: "0x%04X", ControlCID.forward):
+                .shortcut(key: "]", modifiers: ["command"]),
+        ])
+        config.thumbWheelLeft = .system("volumeDownSmall")
+        config.thumbWheelRight = .system("volumeUpSmall")
+        return config
+    }
+
     public func cidKey(_ cid: UInt16) -> String {
         String(format: "0x%04X", cid)
     }
@@ -324,9 +340,10 @@ public final class ConfigStore {
             return cached
         }
         guard let data = try? Data(contentsOf: fileURL) else {
-            let empty = Config.empty()
-            store(cached: empty, mtime: mtime)
-            return empty
+            let fresh = Config.freshDefaults()
+            try? save(fresh)
+            store(cached: fresh, mtime: fileModificationDate())
+            return fresh
         }
         guard let decoded = try? JSONDecoder().decode(Config.self, from: data) else {
             // Corrupted file: back it up with a unique name so repeated
