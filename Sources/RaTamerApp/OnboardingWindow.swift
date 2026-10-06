@@ -23,6 +23,7 @@ final class OnboardingWindow {
 
     func close() {
         window?.close()
+        ActivationPolicyHelper.apply(reason: "onboarding-close")
     }
 
     private func finish() {

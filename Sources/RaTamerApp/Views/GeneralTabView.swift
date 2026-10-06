@@ -111,7 +111,7 @@ struct DockIconRow: View {
         var config = AppModel.shared.configStore.load()
         config.menuBarOnly = menuBarOnly
         try? AppModel.shared.configStore.save(config)
-        NSApp.setActivationPolicy(menuBarOnly ? .accessory : .regular)
+        ActivationPolicyHelper.applyValue(menuBarOnly: menuBarOnly, reason: "toggle")
     }
 }
 

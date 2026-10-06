@@ -30,6 +30,7 @@ final class ScrollGraphWindow: NSObject, NSWindowDelegate {
         MainActor.assumeIsolated { AppModel.shared.engine?.scrollSampleSink = nil }
         stopConfigPoll()
         store.stop()
+        ActivationPolicyHelper.apply(reason: "graph-close")
     }
 
     private func refreshSmoothFlag() {

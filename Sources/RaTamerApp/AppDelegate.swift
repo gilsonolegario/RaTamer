@@ -75,8 +75,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func applyActivationPolicy() {
-        let config = AppModel.shared.configStore.load()
-        NSApp.setActivationPolicy(config.menuBarOnly == true ? .accessory : .regular)
+        ActivationPolicyHelper.apply(reason: "didFinishLaunching")
     }
 
     private func buildMainMenu() {

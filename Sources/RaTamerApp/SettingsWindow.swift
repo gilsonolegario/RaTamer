@@ -7,7 +7,7 @@ final class SettingsNSWindow: NSWindow {
     }
 }
 
-final class SettingsWindow {
+final class SettingsWindow: NSObject, NSWindowDelegate {
     static let shared = SettingsWindow()
     private var window: NSWindow?
     private var resizeWorkItem: DispatchWorkItem?
@@ -15,7 +15,9 @@ final class SettingsWindow {
     private var mouseUpMonitor: Any?
     private var resizeObserver: NSObjectProtocol?
 
-    private init() {}
+    private override init() {
+        super.init()
+    }
 
     func show() {
         makeWindowIfNeeded()
@@ -28,6 +30,13 @@ final class SettingsWindow {
     func close() {
         teardownObservers()
         window?.close()
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        teardownObservers()
+        // Fechar o Settings promovia o app a .regular no macOS 27;
+        // volta para .accessory se o usuário pediu menu bar only.
+        ActivationPolicyHelper.apply(reason: "settings-close")
     }
 
     deinit {
@@ -68,6 +77,7 @@ final class SettingsWindow {
         window.contentMaxSize = NSSize(width: 800, height: 1400)
         window.styleMask = [.titled, .closable, .resizable]
         window.isReleasedWhenClosed = false
+        window.delegate = self
         self.window = window
 
         // Track user drags: hugging the content height mid-drag is what made
