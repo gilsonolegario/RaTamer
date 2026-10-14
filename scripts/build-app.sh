@@ -46,6 +46,11 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/RaTamer"
 cp "$ROOT/build/icon/RaTamer.icns" "$APP/Contents/Resources/RaTamer.icns"
+# Menu-bar-only app: declare LSUIElement so LaunchServices never registers this
+# bundle as a Foreground app. The runtime setActivationPolicy(.accessory) only
+# changes the in-memory state; with a Foreground registration, every spawned
+# child process (e.g. the osascript the volume action ran) makes the Dock insert
+# a transient tile next to the clock — "Just a process tile".
 cat > "$APP/Contents/Info.plist" <<'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -59,6 +64,7 @@ cat > "$APP/Contents/Info.plist" <<'EOF'
     <key>CFBundleShortVersionString</key><string>1.0.5</string>
     <key>CFBundleVersion</key><string>8</string>
     <key>LSMinimumSystemVersion</key><string>14.0</string>
+    <key>LSUIElement</key><true/>
 </dict>
 </plist>
 EOF
