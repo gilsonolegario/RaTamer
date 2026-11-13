@@ -147,6 +147,7 @@ public final class ActionEngine {
     private static let volumeLog = RateLimitedLogger(interval: 5.0)
     private let poster: EventPoster
     private let volume: VolumeControlling
+    private let mediaKeys: MediaKeyPosting
     private let shortcutRunner: ShortcutRunner
 
     /// Injectable frontmost-app check so system key codes (sent to the
@@ -155,9 +156,11 @@ public final class ActionEngine {
 
     public init(poster: EventPoster,
                 volume: VolumeControlling = VolumeController(),
+                mediaKeys: MediaKeyPosting = SystemMediaKeySender(),
                 shortcutRunner: ShortcutRunner = ProcessShortcutRunner()) {
         self.poster = poster
         self.volume = volume
+        self.mediaKeys = mediaKeys
         self.shortcutRunner = shortcutRunner
     }
 
@@ -226,6 +229,13 @@ public final class ActionEngine {
     private func applyVolume(_ adjustment: VolumeAdjustment) {
         do {
             try volume.apply(adjustment)
+        } catch let error as VolumeController.Unavailable {
+            // The device has no volume of its own — HDMI displays report it as
+            // fixed. Hand the intent to the system volume keys so software
+            // volume for that device (a Core Audio tap, or macOS) applies it.
+            _ = error
+            Self.log.info("volume action=\(String(describing: adjustment), privacy: .public) delegated to media key")
+            mediaKeys.post(MediaKey(adjustment))
         } catch {
             if Self.volumeLog.shouldLog() {
                 Self.log.error("volume action=\(String(describing: adjustment), privacy: .public) failed: \(String(describing: error), privacy: .public)")

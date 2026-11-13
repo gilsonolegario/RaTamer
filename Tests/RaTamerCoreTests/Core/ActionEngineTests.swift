@@ -36,6 +36,14 @@ final class MockShortcutRunner: ShortcutRunner {
     }
 }
 
+final class MockMediaKeyPoster: MediaKeyPosting {
+    var keys: [MediaKey] = []
+
+    func post(_ key: MediaKey) {
+        keys.append(key)
+    }
+}
+
 final class ActionEngineTests: XCTestCase {
     func testShortcutPostsKeyDownAndUp() throws {
         let poster = MockEventPoster()
@@ -214,6 +222,33 @@ final class ActionEngineTests: XCTestCase {
         let engine = ActionEngine(poster: MockEventPoster(), volume: volume)
         XCTAssertNoThrow(try engine.execute(.system("volumeUp")),
                          "unsupported devices (HDMI) should be logged, not crash the button loop")
+    }
+
+    func testVolumeUnavailableDeviceDelegatesToMediaKey() throws {
+        let volume = MockVolumeController()
+        volume.error = VolumeController.Unavailable(message: "HDMI without volume control")
+        let mediaKeys = MockMediaKeyPoster()
+        let engine = ActionEngine(poster: MockEventPoster(), volume: volume, mediaKeys: mediaKeys)
+
+        try engine.execute(.system("volumeUp"))
+        try engine.execute(.system("volumeDown"))
+        try engine.execute(.system("volumeMute"))
+
+        XCTAssertEqual(mediaKeys.keys, [.volumeUp, .volumeDown, .mute],
+                       "a device without volume must fall back to the system volume keys")
+    }
+
+    func testVolumeOtherErrorsDoNotDelegateToMediaKey() throws {
+        struct Boom: Error {}
+        let volume = MockVolumeController()
+        volume.error = Boom()
+        let mediaKeys = MockMediaKeyPoster()
+        let engine = ActionEngine(poster: MockEventPoster(), volume: volume, mediaKeys: mediaKeys)
+
+        try engine.execute(.system("volumeUp"))
+
+        XCTAssertTrue(mediaKeys.keys.isEmpty,
+                      "only Unavailable means the device has no volume; other failures must not double-fire")
     }
 
     func testRunShortcutRunsShortcutWithName() throws {
