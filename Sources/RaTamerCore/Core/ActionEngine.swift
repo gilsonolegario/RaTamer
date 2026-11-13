@@ -9,10 +9,6 @@ public protocol EventPoster {
     func postMouseClick(button: UInt8)
 }
 
-public protocol ScriptRunner {
-    func run(_ script: String) throws
-}
-
 public protocol ShortcutRunner {
     func run(_ name: String) throws
 }
@@ -30,23 +26,6 @@ public struct ProcessShortcutRunner: ShortcutRunner {
         }
         guard process.terminationStatus == 0 else {
             throw ActionError.shortcutFailed(name)
-        }
-    }
-}
-
-public struct ProcessScriptRunner: ScriptRunner {
-    public init() {}
-
-    public func run(_ script: String) throws {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
-        process.arguments = ["-e", script]
-        try process.run()
-        guard process.waitUntilExit(timeout: 30) else {
-            throw ActionError.scriptFailed(script)
-        }
-        guard process.terminationStatus == 0 else {
-            throw ActionError.scriptFailed(script)
         }
     }
 }
@@ -160,25 +139,25 @@ public final class CGEventPoster: EventPoster {
 
 public enum ActionError: Error {
     case unsupportedKey
-    case scriptFailed(String)
     case shortcutFailed(String)
 }
 
 public final class ActionEngine {
     private static let log = Logger(subsystem: "com.rattamer", category: "engine")
+    private static let volumeLog = RateLimitedLogger(interval: 5.0)
     private let poster: EventPoster
-    private let scriptRunner: ScriptRunner
+    private let volume: VolumeControlling
     private let shortcutRunner: ShortcutRunner
 
     /// Injectable frontmost-app check so system key codes (sent to the
-    /// frontmost app via System Events) are not dumped into a terminal.
+    /// frontmost app via synthesized events) are not dumped into a terminal.
     public var isFrontmostTerminal: () -> Bool = { false }
 
     public init(poster: EventPoster,
-                scriptRunner: ScriptRunner = ProcessScriptRunner(),
+                volume: VolumeControlling = VolumeController(),
                 shortcutRunner: ShortcutRunner = ProcessShortcutRunner()) {
         self.poster = poster
-        self.scriptRunner = scriptRunner
+        self.volume = volume
         self.shortcutRunner = shortcutRunner
     }
 
@@ -197,7 +176,7 @@ public final class ActionEngine {
             Self.log.info("run shortcut name=\(name, privacy: .public)")
             try shortcutRunner.run(name)
         case .system(let name):
-            try executeSystemAction(name)
+            executeSystemAction(name)
         case .click(let button):
             poster.postMouseClick(button: button)
         case .gesture, .disabled, .cycleDPI:
@@ -205,58 +184,65 @@ public final class ActionEngine {
         }
     }
 
-    private func executeSystemAction(_ name: String) throws {
+    private func executeSystemAction(_ name: String) {
         Self.log.info("system action=\(name, privacy: .public)")
         switch name {
         case "missionControl":
-            try systemKey(0x7E, [.maskControl])           // Ctrl+Up
+            systemKey(0x7E, [.maskControl])           // Ctrl+Up
         case "appExpose":
-            try systemKey(0x7D, [.maskControl])           // Ctrl+Down
+            systemKey(0x7D, [.maskControl])           // Ctrl+Down
         case "previousSpace":
-            try systemKey(0x7B, [.maskControl])           // Ctrl+Left
+            systemKey(0x7B, [.maskControl])           // Ctrl+Left
         case "nextSpace":
-            try systemKey(0x7C, [.maskControl])           // Ctrl+Right
+            systemKey(0x7C, [.maskControl])           // Ctrl+Right
         case "showDesktop":
-            try systemKey(0x67, [])                       // F11
-        case "volumeUp":
-            try runScript("set volume output volume ((output volume of (get volume settings)) + 10)")
-        case "volumeDown":
-            try runScript("set volume output volume ((output volume of (get volume settings)) - 10)")
-        case "volumeUpSmall":
-            try runScript("set volume output volume ((output volume of (get volume settings)) + 3)")
-        case "volumeDownSmall":
-            try runScript("set volume output volume ((output volume of (get volume settings)) - 3)")
-        case "volumeMute":
-            try runScript("set volume with output muted")
-        case "launchpad":
-            try runScript("do shell script \"/usr/bin/open -a Launchpad\"")
+            systemKey(0x67, [])                       // F11
         case "spotlight":
-            try systemKey(0x31, [.maskCommand])           // Cmd+Space
+            systemKey(0x31, [.maskCommand])           // Cmd+Space
         case "lockScreen":
-            try systemKey(0x0C, [.maskControl, .maskCommand]) // Ctrl+Cmd+Q
+            systemKey(0x0C, [.maskControl, .maskCommand]) // Ctrl+Cmd+Q
+        case "volumeUp":
+            applyVolume(.increase(.normal))
+        case "volumeDown":
+            applyVolume(.decrease(.normal))
+        case "volumeUpSmall":
+            applyVolume(.increase(.small))
+        case "volumeDownSmall":
+            applyVolume(.decrease(.small))
+        case "volumeMute":
+            applyVolume(.mute)
+        case "launchpad":
+            // Launchpad no longer exists on current macOS (revisited on 27.x:
+            // `/System/Applications/Launchpad.app` is gone). Keep the catalog
+            // entry so saved configs still load, but never spawn a child
+            // process for it — spawning osascript was what made macOS render a
+            // transient Dock tile for this menu-bar-only app.
+            Self.log.info("system action=launchpad unavailable on this macOS version — ignored")
         default:
             break
         }
     }
 
-    private func systemKey(_ keyCode: UInt16, _ flags: CGEventFlags) throws {
+    private func applyVolume(_ adjustment: VolumeAdjustment) {
+        do {
+            try volume.apply(adjustment)
+        } catch {
+            if Self.volumeLog.shouldLog() {
+                Self.log.error("volume action=\(String(describing: adjustment), privacy: .public) failed: \(String(describing: error), privacy: .public)")
+            }
+        }
+    }
+
+    private func systemKey(_ keyCode: UInt16, _ flags: CGEventFlags) {
         guard !isFrontmostTerminal() else {
             Self.log.info("systemKey code=\(keyCode, privacy: .public) suppressed — terminal frontmost")
             return
         }
-        var mods: [String] = []
-        if flags.contains(.maskControl) { mods.append("control down") }
-        if flags.contains(.maskCommand) { mods.append("command down") }
-        if flags.contains(.maskAlternate) { mods.append("option down") }
-        if flags.contains(.maskShift) { mods.append("shift down") }
-        let using = mods.isEmpty ? "" : " using {\(mods.joined(separator: ", "))}"
-        let script = "tell application \"System Events\" to key code \(keyCode)\(using)"
-        Self.log.info("systemKey code=\(keyCode, privacy: .public) script=\(script, privacy: .public)")
-        try runScript(script)
-    }
-
-    private func runScript(_ script: String) throws {
-        try scriptRunner.run(script)
+        Self.log.info("systemKey code=\(keyCode, privacy: .public)")
+        // Same synthesized key events the `.shortcut` path already posts via
+        // the HID tap — no System Events / osascript child process involved.
+        poster.postKey(keyCode, down: true, flags: flags)
+        poster.postKey(keyCode, down: false, flags: flags)
     }
 
     public static func keyCode(for character: String) -> UInt16? {

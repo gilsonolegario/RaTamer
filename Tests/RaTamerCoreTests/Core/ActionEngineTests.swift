@@ -16,13 +16,13 @@ final class MockEventPoster: EventPoster {
     }
 }
 
-final class MockScriptRunner: ScriptRunner {
-    var scripts: [String] = []
+final class MockVolumeController: VolumeControlling {
+    var adjustments: [VolumeAdjustment] = []
     var error: Error?
 
-    func run(_ script: String) throws {
+    func apply(_ adjustment: VolumeAdjustment) throws {
         if let error { throw error }
-        scripts.append(script)
+        adjustments.append(adjustment)
     }
 }
 
@@ -48,13 +48,15 @@ final class ActionEngineTests: XCTestCase {
         XCTAssertEqual(poster.keys[0].flags, .maskCommand)
     }
 
-    func testSystemActionRunsScriptForSystemShortcut() throws {
-        let runner = MockScriptRunner()
-        let engine = ActionEngine(poster: MockEventPoster(), scriptRunner: runner)
+    func testSystemActionMissionControlPostsCtrlUp() throws {
+        let poster = MockEventPoster()
+        let engine = ActionEngine(poster: poster)
         try engine.execute(.system("missionControl"))
-        XCTAssertEqual(runner.scripts, [
-            "tell application \"System Events\" to key code 126 using {control down}"
-        ])
+        XCTAssertEqual(poster.keys.count, 2)
+        XCTAssertEqual(poster.keys[0].keyCode, 0x7E)
+        XCTAssertTrue(poster.keys[0].down)
+        XCTAssertFalse(poster.keys[1].down)
+        XCTAssertEqual(poster.keys[0].flags, .maskControl)
     }
 
     func testClickPostsOnce() throws {
@@ -177,32 +179,41 @@ final class ActionEngineTests: XCTestCase {
         XCTAssertEqual(ActionEngine.keyName(for: 0x31, characters: " "), "space")
     }
 
-    func testSystemActionsRunScripts() throws {
-        func scripts(for action: ButtonAction) throws -> [String] {
-            let runner = MockScriptRunner()
-            try ActionEngine(poster: MockEventPoster(), scriptRunner: runner).execute(action)
-            return runner.scripts
+    func testSystemActionsPostKeys() throws {
+        let cases: [(name: String, keyCode: UInt16, flags: CGEventFlags)] = [
+            ("missionControl", 0x7E, .maskControl),
+            ("appExpose", 0x7D, .maskControl),
+            ("previousSpace", 0x7B, .maskControl),
+            ("nextSpace", 0x7C, .maskControl),
+            ("showDesktop", 0x67, []),
+            ("spotlight", 0x31, .maskCommand),
+            ("lockScreen", 0x0C, [.maskControl, .maskCommand]),
+        ]
+        for (name, keyCode, flags) in cases {
+            let poster = MockEventPoster()
+            let engine = ActionEngine(poster: poster)
+            try engine.execute(.system(name))
+            XCTAssertEqual(poster.keys.map(\.keyCode), [keyCode, keyCode], "\(name)")
+            XCTAssertTrue(poster.keys[0].down, "\(name) key down")
+            XCTAssertFalse(poster.keys[1].down, "\(name) key up")
+            XCTAssertEqual(poster.keys[0].flags, flags, "\(name) flags")
         }
-
-        XCTAssertEqual(try scripts(for: .system("launchpad")), [
-            "do shell script \"/usr/bin/open -a Launchpad\""
-        ])
-        XCTAssertEqual(try scripts(for: .system("spotlight")), [
-            "tell application \"System Events\" to key code 49 using {command down}"
-        ])
-        XCTAssertEqual(try scripts(for: .system("lockScreen")), [
-            "tell application \"System Events\" to key code 12 using {control down, command down}"
-        ])
-        XCTAssertEqual(try scripts(for: .system("showDesktop")), [
-            "tell application \"System Events\" to key code 103"
-        ])
     }
 
-    func testScriptFailureThrows() {
-        let runner = MockScriptRunner()
-        runner.error = ActionError.scriptFailed("boom")
-        let engine = ActionEngine(poster: MockEventPoster(), scriptRunner: runner)
-        XCTAssertThrowsError(try engine.execute(.system("missionControl")))
+    func testLaunchpadActionIsNoOpWithoutSpawning() throws {
+        let poster = MockEventPoster()
+        let engine = ActionEngine(poster: poster)
+        try engine.execute(.system("launchpad"))
+        XCTAssertTrue(poster.keys.isEmpty,
+                      "launchpad is gone on current macOS and must not post keys or spawn anything")
+    }
+
+    func testVolumeUnavailableDeviceDoesNotThrow() {
+        let volume = MockVolumeController()
+        volume.error = VolumeController.Unavailable(message: "HDMI without volume control")
+        let engine = ActionEngine(poster: MockEventPoster(), volume: volume)
+        XCTAssertNoThrow(try engine.execute(.system("volumeUp")),
+                         "unsupported devices (HDMI) should be logged, not crash the button loop")
     }
 
     func testRunShortcutRunsShortcutWithName() throws {
@@ -227,17 +238,17 @@ final class ActionEngineTests: XCTestCase {
         XCTAssertEqual(runner.names, ["SS Volume Up"])
     }
 
-    func testVolumeSmallActionsRunScripts() throws {
-        func scripts(for action: ButtonAction) throws -> [String] {
-            let runner = MockScriptRunner()
-            try ActionEngine(poster: MockEventPoster(), scriptRunner: runner).execute(action)
-            return runner.scripts
-        }
-        XCTAssertEqual(try scripts(for: .system("volumeUpSmall")), [
-            "set volume output volume ((output volume of (get volume settings)) + 3)"
-        ])
-        XCTAssertEqual(try scripts(for: .system("volumeDownSmall")), [
-            "set volume output volume ((output volume of (get volume settings)) - 3)"
+    func testVolumeActionsForwardToController() throws {
+        let volume = MockVolumeController()
+        let engine = ActionEngine(poster: MockEventPoster(), volume: volume)
+        try engine.execute(.system("volumeUp"))
+        try engine.execute(.system("volumeDown"))
+        try engine.execute(.system("volumeUpSmall"))
+        try engine.execute(.system("volumeDownSmall"))
+        try engine.execute(.system("volumeMute"))
+        XCTAssertEqual(volume.adjustments, [
+            .increase(.normal), .decrease(.normal),
+            .increase(.small), .decrease(.small), .mute,
         ])
     }
 
@@ -265,12 +276,12 @@ final class ActionEngineTests: XCTestCase {
     }
 
     func testSystemKeySuppressedWhenFrontmostIsTerminal() throws {
-        let runner = MockScriptRunner()
-        let engine = ActionEngine(poster: MockEventPoster(), scriptRunner: runner)
+        let poster = MockEventPoster()
+        let engine = ActionEngine(poster: poster)
         engine.isFrontmostTerminal = { true }
         try engine.execute(.system("missionControl"))
-        XCTAssertTrue(runner.scripts.isEmpty,
-                      "systemKey (AppleScript key code) must not run when frontmost is a terminal")
+        XCTAssertTrue(poster.keys.isEmpty,
+                      "systemKey must not post synthesized keys when frontmost is a terminal")
     }
 
     func testShutdownRemovesLayoutObserverWithoutCrashing() {
