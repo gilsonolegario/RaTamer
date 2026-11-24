@@ -71,6 +71,7 @@ public final class HIDPPSession {
         device.recycle(&bytes)
     }
 
+    @discardableResult
     public func request(
         deviceIndex: UInt8,
         featureIndex: UInt8,

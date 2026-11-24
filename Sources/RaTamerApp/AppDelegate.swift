@@ -21,7 +21,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             CrashReporter.addBreadcrumb("device disconnected")
             Notifier.post(title: "RaTamer", body: "\(AppModel.shared.deviceName) disconnected")
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
             OnboardingWindow.shared.onFinish = { [weak self] in
                 self?.menuBar?.showPopover()
             }

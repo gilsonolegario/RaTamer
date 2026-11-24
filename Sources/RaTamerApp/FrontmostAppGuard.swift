@@ -7,16 +7,17 @@ import Foundation
 /// window. The answer is cached for a short window because the smooth-scroll
 /// path queries it at 120 Hz.
 enum FrontmostAppGuard {
-    private static let cacheTTL: TimeInterval = 0.25
-
     private static let lock = NSLock()
     private static var cachedResult = false
-    private static var cachedAt = Date.distantPast
 
     /// Whether the terminal protection is enabled in the user config. Set from
     /// EngineController whenever the config reloads; cached so the hot path
     /// (120 Hz smooth scroll) never touches the config store or AppKit.
-    static var isEnabled = true
+    static var isEnabled = true {
+        didSet {
+            invalidate()
+        }
+    }
 
     private static let terminalBundleIDs: Set<String> = [
         "com.apple.Terminal",
@@ -54,36 +55,32 @@ enum FrontmostAppGuard {
         terminalBundleIDs.contains(bundleID)
     }
 
-    /// Invalidate the cached answer so the next query recomputes. Call when
-    /// the frontmost app changes (NSWorkspace.didActivateApplicationNotification).
-    static func invalidate() {
+    /// Directly updates the cached terminal state using the provided bundle ID.
+    static func update(bundleID: String?) {
+        let isTerm = bundleID.map { terminalBundleIDs.contains($0) } ?? false
         lock.lock()
-        cachedAt = .distantPast
+        cachedResult = isEnabled && isTerm
         lock.unlock()
     }
 
+    /// Invalidate the cached answer so the next query reflects the current frontmost app.
+    /// Safely hops to main if invoked from a background queue.
+    static func invalidate() {
+        if Thread.isMainThread {
+            update(bundleID: NSWorkspace.shared.frontmostApplication?.bundleIdentifier)
+        } else {
+            DispatchQueue.main.async {
+                update(bundleID: NSWorkspace.shared.frontmostApplication?.bundleIdentifier)
+            }
+        }
+    }
+
+    /// Fast non-blocking check. Called at 120 Hz from the smooth-scroll coordinator
+    /// queue without ever blocking on the main thread.
     static func isFrontmostTerminal() -> Bool {
         lock.lock()
-        let now = Date()
-        let isExpired = now.timeIntervalSince(cachedAt) >= cacheTTL
-        let cached = cachedResult
-        lock.unlock()
-        guard isExpired else { return cached }
-        let value: Bool
-        if Thread.isMainThread {
-            value = compute()
-        } else {
-            var computed = false
-            DispatchQueue.main.sync { computed = compute() }
-            value = computed
-        }
-        lock.lock()
-        if now.timeIntervalSince(cachedAt) >= 0 {
-            cachedResult = value
-            cachedAt = now
-        }
-        lock.unlock()
-        return value
+        defer { lock.unlock() }
+        return cachedResult
     }
 
     private static func compute() -> Bool {

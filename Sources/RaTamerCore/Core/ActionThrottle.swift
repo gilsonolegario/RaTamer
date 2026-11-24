@@ -44,12 +44,15 @@ public final class ActionThrottle {
         heldSince.removeValue(forKey: key)
     }
 
-    /// True if `key` may fire now. A second fire within `minInterval` is
-    /// suppressed. Safe to call from any thread.
-    public func shouldFire(_ key: String, now: TimeInterval = Date().timeIntervalSinceReferenceDate) -> Bool {
+    /// True if `key` may fire now. A second fire within `minInterval` (or `overrideInterval`
+    /// if provided) is suppressed. Safe to call from any thread.
+    public func shouldFire(_ key: String,
+                           overrideInterval: TimeInterval? = nil,
+                           now: TimeInterval = Date().timeIntervalSinceReferenceDate) -> Bool {
         lock.lock()
         defer { lock.unlock() }
-        if let last = lastFired[key], now - last < minInterval {
+        let interval = overrideInterval ?? minInterval
+        if let last = lastFired[key], now - last < interval {
             return false
         }
         lastFired[key] = now

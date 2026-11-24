@@ -115,6 +115,15 @@ enum CrashReporter {
 
     private static func prepareLogFile() {
         let url = logURL
+        if let attrs = try? FileManager.default.attributesOfItem(atPath: url.path),
+           let size = attrs[.size] as? Int64, size > 1_000_000 {
+            if let handle = FileHandle(forReadingAtPath: url.path) {
+                _ = try? handle.seek(toOffset: UInt64(max(0, size - 100_000)))
+                let tail = (try? handle.readToEnd()) ?? Data()
+                try? handle.close()
+                try? tail.write(to: url)
+            }
+        }
         fd = open(url.path, O_APPEND | O_CREAT | O_WRONLY, 0o644)
     }
 

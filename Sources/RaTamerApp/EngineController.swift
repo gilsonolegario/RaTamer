@@ -46,7 +46,10 @@ final class EngineController {
     private var watchdog: ConnectionWatchdog?
     private var pingTimer: DispatchSourceTimer?
     private var frontmostObserver: NSObjectProtocol?
+    private var lastWasTerminal = false
     private static let pingInterval: TimeInterval = 2.0
+    private var lastReportAt = Date.distantPast
+    private let lastReportLock = NSLock()
     private let actionThrottle = ActionThrottle(minInterval: 0.25, holdTimeout: 10)
     private static let throttleLog = RateLimitedLogger(interval: 5.0)
     private static let retryBaseDelay: TimeInterval = 2.0
@@ -647,12 +650,16 @@ final class EngineController {
     /// alone would leave the wheel dead in the terminal).
     private func startFrontmostObserver() {
         guard frontmostObserver == nil else { return }
+        FrontmostAppGuard.invalidate()
+        lastWasTerminal = FrontmostAppGuard.isFrontmostTerminal()
         frontmostObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didActivateApplicationNotification,
             object: nil,
             queue: .main
-        ) { [weak self] _ in
-            self?.handleFrontmostAppChanged()
+        ) { [weak self] notification in
+            let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
+                ?? NSWorkspace.shared.frontmostApplication
+            self?.handleFrontmostAppChanged(to: app)
         }
     }
 
@@ -687,9 +694,11 @@ final class EngineController {
         }
     }
 
-    private func handleFrontmostAppChanged() {
-        FrontmostAppGuard.invalidate()
+    private func handleFrontmostAppChanged(to app: NSRunningApplication?) {
+        FrontmostAppGuard.update(bundleID: app?.bundleIdentifier)
         let isTerminal = FrontmostAppGuard.isFrontmostTerminal()
+        guard isTerminal != lastWasTerminal else { return }
+        lastWasTerminal = isTerminal
         ioQueue.async { [weak self] in
             guard let self, let service = self._hiResWheelService, !self.stopped else { return }
             if isTerminal {
@@ -748,6 +757,21 @@ final class EngineController {
                        leeway: .milliseconds(200))
         timer.setEventHandler { [weak self] in
             guard let self, let session = self.session, !self.stopped else { return }
+            self.lastReportLock.lock()
+            let timeSinceReport = Date().timeIntervalSince(self.lastReportAt)
+            self.lastReportLock.unlock()
+
+            // If we recently received reports (e.g. wheel, buttons, rawXY),
+            // the device is actively communicating. Suppress the ping so
+            // the mailbox is never blocked and scroll reports are never delayed.
+            if timeSinceReport < Self.pingInterval {
+                self.timerLock.lock()
+                let wd = self.watchdog
+                self.timerLock.unlock()
+                wd?.report(ok: true)
+                return
+            }
+
             let answered = (try? session.ping(deviceIndex: self.deviceIndex)) ?? false
             self.timerLock.lock()
             let wd = self.watchdog
@@ -770,6 +794,9 @@ final class EngineController {
             while !self.stopped {
                 autoreleasepool {
                     if var report = try? session.readReport(timeout: .greatestFiniteMagnitude) {
+                        self.lastReportLock.lock()
+                        self.lastReportAt = Date()
+                        self.lastReportLock.unlock()
                         _ = monitor.feed(report)
                         session.recycle(&report)
                     }
@@ -850,7 +877,7 @@ final class EngineController {
         ioQueue.async { [weak self] in
             guard let self, !self.stopped else { return }
             let key = direction == .left ? "wheel-left" : "wheel-right"
-            guard self.actionThrottle.shouldFire(key) else { return }
+            guard self.actionThrottle.shouldFire(key, overrideInterval: 0.04) else { return }
             do {
                 try self.actionEngine.execute(action)
             } catch {

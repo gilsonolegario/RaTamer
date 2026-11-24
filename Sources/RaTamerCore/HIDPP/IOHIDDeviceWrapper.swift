@@ -4,7 +4,7 @@ import IOKit.hid
 public final class IOHIDDeviceWrapper: HIDDevice {
     public let productName: String?
     private let device: IOHIDDevice
-    private let mailbox = HIDReportMailbox(capacity: 16)
+    private let mailbox = HIDReportMailbox(capacity: 64)
     /// Stable, heap-allocated report buffer. A Swift `[UInt8]` array may relocate
     /// its storage (copy-on-write) and leave the IOKit callback pointing at
     /// freed memory; an explicit allocation stays put for the wrapper's life.

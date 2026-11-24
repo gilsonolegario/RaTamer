@@ -151,8 +151,8 @@ do {
             } else {
                 mode &= ~0x04
             }
-            try session.request(deviceIndex: 1, featureIndex: wheelIndex,
-                                functionID: 0x02, params: [mode, 0, 0])
+            _ = try session.request(deviceIndex: 1, featureIndex: wheelIndex,
+                                    functionID: 0x02, params: [mode, 0, 0])
             print("Set wheel invert=\(setArg) (mode=0x\(String(format: "%02X", mode)))")
         }
     }
@@ -183,8 +183,8 @@ do {
         }
         if let dpiArg = CommandLine.arguments.dropFirst().first(where: { $0.hasPrefix("dpi=") }) {
             let value = UInt16(dpiArg.dropFirst(4)) ?? 0
-            try session.request(deviceIndex: 1, featureIndex: dpiIndex,
-                                functionID: 0x03, params: [0, UInt8(value >> 8), UInt8(value & 0xFF)])
+            _ = try session.request(deviceIndex: 1, featureIndex: dpiIndex,
+                                    functionID: 0x03, params: [0, UInt8(value >> 8), UInt8(value & 0xFF)])
             print("Set DPI: \(value)")
         }
     }
