@@ -45,6 +45,9 @@ final class AppModel: ObservableObject {
                     self.isReconnecting = false
                     self.deviceName = engine.deviceName
                     self.capabilities = engine.capabilities
+                    if self.dpiCache == nil {
+                        self.preloadDPI()
+                    }
                 case .disconnected:
                     self.isConnected = false
                     self.isReconnecting = false

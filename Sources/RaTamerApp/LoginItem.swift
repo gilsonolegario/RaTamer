@@ -45,6 +45,8 @@ enum LaunchAgent {
     }
 
     static func install() throws {
+        let dir = path.deletingLastPathComponent()
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let execPath = Bundle.main.executablePath ?? CommandLine.arguments[0]
         let plist: [String: Any] = [
             "Label": label,

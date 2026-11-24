@@ -378,6 +378,8 @@ public final class ConfigStore {
     }
 
     public func save(_ config: Config) throws {
+        let parent = fileURL.deletingLastPathComponent()
+        try? FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         let data = try encoder.encode(config)

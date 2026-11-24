@@ -76,11 +76,9 @@ struct MenuBarPopoverView: View {
         .frame(width: 280)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .onAppear {
-            BatteryMonitor.shared.start()
             loadDPI()
         }
         .onDisappear {
-            BatteryMonitor.shared.stop()
             statusHoverHandler.cancel()
         }
     }
@@ -145,6 +143,12 @@ struct MenuBarPopoverView: View {
     }
 
     private func loadDPI() {
+        if let cache = AppModel.shared.dpiCache, cache.values.count > 1 {
+            self.dpiValues = cache.values
+            self.dpi = cache.value
+            self.dpiLoaded = true
+            return
+        }
         guard let service = AppModel.shared.engine?.dpiService else { return }
         let currentDPI = dpi
         DispatchQueue.global(qos: .utility).async {

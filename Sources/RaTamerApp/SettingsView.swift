@@ -90,7 +90,7 @@ struct SettingsView: View {
             .onGeometryChange(for: CGFloat.self) { proxy in
                 proxy.size.height
             } action: { height in
-                if let old = contentHeights[tab], abs(old - height) < 0.5 { return }
+                if let old = contentHeights[tab], abs(old - height) < 8 { return }
                 contentHeights[tab] = height
                 if selection == tab {
                     reportTotalHeight()

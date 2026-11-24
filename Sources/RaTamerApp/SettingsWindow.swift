@@ -107,9 +107,9 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
     private func scheduleResize(_ contentHeight: CGFloat) {
         guard !isLiveResizing else { return }
         let delta = abs(contentHeight - lastContentHeight)
-        guard delta >= 1 else { return }
+        guard delta >= 8 else { return }
         resizeWorkItem?.cancel()
-        let delay: TimeInterval = delta > 140 ? 0.08 : 0.02
+        let delay: TimeInterval = delta > 140 ? 0.08 : 0.04
         lastContentHeight = contentHeight
         let work = DispatchWorkItem { [weak self] in
             self?.resizeToContent(contentHeight)
