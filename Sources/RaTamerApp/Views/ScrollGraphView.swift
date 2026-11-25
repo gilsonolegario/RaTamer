@@ -68,6 +68,7 @@ enum ScrollGraphPainter {
                      size: CGSize, in context: inout GraphicsContext) {
         let plot = Plot(left: 46, right: size.width - 46, bottom: size.height - 26, top: 76)
         let plotHeight = plot.bottom - plot.top
+        guard plot.right > plot.left, plotHeight > 0 else { return }
         let now = Date()
         let outputs = samples.filter { $0.kind == .output }
         let raws = samples.filter { $0.kind == .raw }

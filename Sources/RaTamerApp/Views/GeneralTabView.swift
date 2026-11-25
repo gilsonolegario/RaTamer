@@ -8,134 +8,139 @@ struct GeneralTabView: View {
 
     var body: some View {
         Form {
-                Section {
-                    PermissionStatusRow()
-                } header: {
-                    HStack {
-                        Text("Accessibility")
-                        HelpButton(text: "RaTamer needs accessibility permission to remap buttons and post keyboard/mouse events.")
-                    }
-                }
-                Section {
-                    HStack {
-                        Toggle("Enable remapping", isOn: $model.remappingEnabled)
-                        HelpButton(text: "When off, buttons fall back to native behavior until re-enabled.")
-                    }
-                } header: {
-                    Text("Remapping")
-                }
-                Section {
-                    HStack {
-                        TerminalProtectionRow()
-                        HelpButton(text: "Blocks synthesized keys, clicks and scrolls while a terminal app is focused, so shortcuts and gestures never land as text in tmux.")
-                    }
-                } header: {
-                    Text("Terminal Protection")
-                }
-                Section {
-                    DPISliderRow()
-                    DPICyclePresetsRow()
-                    HStack {
-                        Spacer()
-                        HelpButton(text: "Sensor resolution. Assign \"Cycle DPI\" to a button in the Buttons tab to switch presets on the fly.")
-                    }
-                } header: {
-                    Text("DPI")
-                }
-                Section {
-                    HStack {
-                        Toggle("Start at login", isOn: $loginItem.isEnabled)
-                        HelpButton(text: "Launches RaTamer when you log in so button remapping is always available.")
-                    }
-                } header: {
-                    Text("Login")
-                }
-                Section {
-                    HStack {
-                        DockIconRow()
-                        HelpButton(text: "Hides the Dock icon and keeps RaTamer accessible only from the menu bar and popover.")
-                    }
-                } header: {
-                    Text("Dock")
+            Section {
+                PermissionStatusRow()
+            } header: {
+                HStack(spacing: 6) {
+                    Text("Status & Permissions")
+                    HelpButton(text: "RaTamer needs accessibility permission to remap buttons and post keyboard/mouse events.")
                 }
             }
-            .formStyle(.grouped)
+
+            Section {
+                Toggle("Enable remapping", isOn: $model.remappingEnabled)
+                TerminalProtectionRow()
+            } header: {
+                HStack(spacing: 6) {
+                    Text("Behavior")
+                    HelpButton(text: "Disable remapping to temporarily revert to native mouse behavior. Terminal protection blocks synthesized keys, clicks, and scrolls while a terminal app is focused.")
+                }
+            }
+
+            Section {
+                DPISliderRow()
+                DPICyclePresetsRow()
+            } header: {
+                HStack(spacing: 6) {
+                    Text("Pointer & DPI")
+                    HelpButton(text: "Adjust sensor resolution or define comma-separated presets for the \"Cycle DPI\" button action.")
+                }
+            }
+
+            Section {
+                Toggle("Start at login", isOn: $loginItem.isEnabled)
+                DockIconRow()
+            } header: {
+                HStack(spacing: 6) {
+                    Text("System")
+                    HelpButton(text: "Launch RaTamer automatically at login or hide its Dock icon to keep it strictly in the menu bar.")
+                }
+            }
+        }
+        .formStyle(.grouped)
     }
 }
 
 struct TerminalProtectionRow: View {
-    @State private var protectTerminals = true
-    @State private var loaded = false
+    @ObservedObject private var model = AppModel.shared
 
     var body: some View {
-        Toggle("Block events in terminal apps", isOn: $protectTerminals)
-            .onChange(of: protectTerminals) { _, _ in
-                guard loaded else { return }
-                apply()
-            }
-            .onAppear(perform: load)
-    }
-
-    private func load() {
-        protectTerminals = AppModel.shared.configStore.load().protectTerminals ?? true
-        loaded = true
-    }
-
-    private func apply() {
-        var config = AppModel.shared.configStore.load()
-        config.protectTerminals = protectTerminals
-        try? AppModel.shared.configStore.save(config)
-        AppModel.shared.engine?.applyConfig()
+        Toggle(
+            "Block events in terminal apps",
+            isOn: Binding(
+                get: { model.config.protectTerminals ?? true },
+                set: { newValue in
+                    model.updateConfig { $0.protectTerminals = newValue }
+                    model.engine?.applyConfig()
+                }
+            )
+        )
     }
 }
 
 struct DockIconRow: View {
-    @State private var menuBarOnly = false
-    @State private var loaded = false
+    @ObservedObject private var model = AppModel.shared
 
     var body: some View {
-        Toggle("Menu bar only (hide from Dock)", isOn: $menuBarOnly)
-            .onChange(of: menuBarOnly) { _, _ in
-                guard loaded else { return }
-                apply()
-            }
-            .onAppear(perform: load)
-    }
-
-    private func load() {
-        menuBarOnly = AppModel.shared.configStore.load().menuBarOnly == true
-        loaded = true
-    }
-
-    private func apply() {
-        var config = AppModel.shared.configStore.load()
-        config.menuBarOnly = menuBarOnly
-        try? AppModel.shared.configStore.save(config)
-        ActivationPolicyHelper.applyValue(menuBarOnly: menuBarOnly, reason: "toggle")
+        Toggle(
+            "Menu bar only (hide from Dock)",
+            isOn: Binding(
+                get: { model.config.menuBarOnly == true },
+                set: { newValue in
+                    model.updateConfig { $0.menuBarOnly = newValue }
+                    ActivationPolicyHelper.applyValue(menuBarOnly: newValue, reason: "toggle")
+                }
+            )
+        )
     }
 }
 
 struct PermissionStatusRow: View {
-    @State private var accessibility = false
+    @ObservedObject private var model = AppModel.shared
 
     var body: some View {
-        HStack {
-            Label("Accessibility", systemImage: accessibility ? "checkmark.circle.fill" : "xmark.circle.fill")
-                .foregroundStyle(accessibility ? .green : .red)
-            SegmentedPillRow(segments: [
-                (label: "Fix", action: { openAccessibilitySettings() }, isHighlighted: true)
-            ], compact: true)
-            Spacer()
-            Text(AppModel.shared.statusText).font(.caption)
+        VStack(spacing: 10) {
+            HStack(spacing: 8) {
+                Label {
+                    Text("Accessibility")
+                } icon: {
+                    Image(systemName: model.accessibilityTrusted ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                        .foregroundStyle(model.accessibilityTrusted ? .green : .orange)
+                }
+                Spacer()
+                if model.accessibilityTrusted {
+                    Text("Granted")
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.green)
+                } else {
+                    SegmentedPillRow(segments: [
+                        (label: "Grant Access…", action: { openAccessibilitySettings() }, isHighlighted: true)
+                    ], compact: true)
+                }
+            }
+            Divider().opacity(0.4)
+            HStack(spacing: 8) {
+                Label {
+                    Text(model.isConnected ? model.deviceName : "Mouse")
+                } icon: {
+                    Image(systemName: model.isConnected ? "computermouse.fill" : "computermouse")
+                        .foregroundStyle(connectionColor)
+                }
+                Spacer()
+                Text(model.statusText)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                if !model.isConnected && !model.isReconnecting {
+                    SegmentedPillRow(segments: [
+                        (label: "Reconnect", action: { model.engine?.reconnect() }, isHighlighted: false)
+                    ], compact: true)
+                }
+            }
         }
         .onAppear {
-            accessibility = Permissions.isAccessibilityTrusted()
+            model.refreshAccessibility()
         }
+    }
+
+    private var connectionColor: Color {
+        if model.isReconnecting { return .orange }
+        return model.isConnected ? .green : .secondary
     }
 
     private func openAccessibilitySettings() {
         Permissions.requestAccessibility()
-        accessibility = Permissions.isAccessibilityTrusted()
+        model.refreshAccessibility()
     }
 }
 
@@ -146,64 +151,100 @@ struct DPISliderRow: View {
 
     var body: some View {
         Group {
-            if values.count > 1 {
-                Slider(value: $current, in: closedRange, step: step) { editing in
-                    if !editing { apply(UInt16(current)) }
+            if dpiAvailable {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text("Sensitivity")
+                        Spacer()
+                        Text(verbatim: "\(Int(current)) DPI")
+                            .font(.callout.weight(.medium))
+                            .monospacedDigit()
+                            .foregroundStyle(.secondary)
+                    }
+                    Slider(
+                        value: Binding(
+                            get: { current },
+                            set: { newValue in
+                                current = Double(nearestDPI(to: newValue))
+                            }
+                        ),
+                        in: closedRange
+                    ) { editing in
+                        if !editing { apply(nearestDPI(to: current)) }
+                    }
+                    .controlSize(.small)
+                    .tint(Color.accentColor)
+                    .frame(height: 22)
+                    if let lower = values.first, let upper = values.last {
+                        HStack {
+                            Text(verbatim: "\(lower)")
+                            Spacer()
+                            Text(verbatim: "\(upper)")
+                        }
+                        .font(.caption2)
+                        .monospacedDigit()
+                        .foregroundStyle(.tertiary)
+                    }
                 }
-                .controlSize(.small)
-                .tint(Color.accentColor)
-                .frame(height: 22)
-                HStack {
-                    Text("\(Int(current)) DPI")
-                    Spacer()
-                }
-                .font(.caption)
-                .foregroundStyle(.secondary)
             } else if model.isConnected {
                 Text(values.isEmpty ? "Loading DPI…" : "DPI feature unavailable on this device")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {
-                Text("Connect your mouse to see DPI options")
+                Text("Connect your mouse to adjust sensor DPI")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
         }
         .onAppear {
-            NSLog("[DPISliderRow] onAppear isConnected=%d dpiCacheNil=%d serviceNil=%d capsHasDPI=%d", model.isConnected ? 1 : 0, model.dpiCache==nil ? 1 : 0, AppModel.shared.engine?.dpiService==nil ? 1 : 0, model.capabilities.hasDPI ? 1 : 0)
+            syncFromCache()
             load()
         }
-        .onChange(of: model.dpiCache) { _, cache in
-            if let cache {
-                self.values = cache.values
-                self.current = cache.value
-                NSLog("[DPISliderRow] dpiCache arrived count=%d value=%.0f", cache.values.count, cache.value)
-            } else {
-                self.values = []
-                NSLog("[DPISliderRow] dpiCache cleared")
-            }
+        .onChange(of: model.dpiCache) { _, _ in
+            syncFromCache()
         }
         .onChange(of: model.isConnected) { _, connected in
-            NSLog("[DPISliderRow] isConnected=%d", connected ? 1 : 0)
-            if connected { load() }
+            if connected {
+                load()
+            } else {
+                values = []
+            }
         }
+    }
+
+    private var dpiAvailable: Bool {
+        guard let first = values.first, let last = values.last else { return false }
+        return values.count > 1 && first < last
     }
 
     private var closedRange: ClosedRange<Double> {
-        Double(values.first ?? 0)...Double(values.last ?? 0)
+        let lower = Double(values.first ?? 400)
+        let upper = max(lower + 1, Double(values.last ?? 4000))
+        return lower...upper
     }
 
-    private var step: Double {
-        guard values.count >= 2 else { return 1 }
-        let gaps = zip(values.dropFirst(), values).map { Double($0 - $1) }
-        return gaps.min() ?? 1
+    private func nearestDPI(to target: Double) -> UInt16 {
+        guard !values.isEmpty else { return UInt16(max(100, target.rounded())) }
+        return values.min(by: { abs(Double($0) - target) < abs(Double($1) - target) }) ?? values[0]
+    }
+
+    private func syncFromCache() {
+        guard let cache = model.dpiCache else {
+            if !model.isConnected { values = [] }
+            return
+        }
+        let sorted = Array(Set(cache.values)).sorted()
+        guard sorted.count > 1 else { return }
+        self.values = sorted
+        self.current = Double(sorted.min(by: { abs(Double($0) - cache.value) < abs(Double($1) - cache.value) }) ?? sorted[0])
     }
 
     private func load() {
-        guard let service = AppModel.shared.engine?.dpiService else { return }
+        guard let service = model.engine?.dpiService else { return }
         let currentValue = current
         DispatchQueue.global(qos: .utility).async {
-            let values = (try? service.getSensorDpiList(sensor: 0)) ?? []
+            let raw = (try? service.getSensorDpiList(sensor: 0)) ?? []
+            let values = Array(Set(raw)).sorted()
             if values.count > 1 {
                 let stored = AppModel.shared.configStore.load().dpiValue
                 let selected: Double
@@ -214,10 +255,11 @@ struct DPISliderRow: View {
                 } else {
                     selected = currentValue
                 }
-                let cache = DPICache(values: values, value: selected)
+                let snapped = Double(values.min(by: { abs(Double($0) - selected) < abs(Double($1) - selected) }) ?? values[0])
+                let cache = DPICache(values: values, value: snapped)
                 DispatchQueue.main.async {
                     self.values = values
-                    self.current = selected
+                    self.current = snapped
                     AppModel.shared.dpiCache = cache
                 }
             } else {
@@ -227,68 +269,110 @@ struct DPISliderRow: View {
     }
 
     private func apply(_ dpi: UInt16) {
-        var config = AppModel.shared.configStore.load()
-        config.dpiValue = dpi
-        try? AppModel.shared.configStore.save(config)
-        AppModel.shared.dpiCache = DPICache(values: values, value: Double(dpi))
-        AppModel.shared.engine?.applyConfig()
+        current = Double(dpi)
+        model.updateConfig { $0.dpiValue = dpi }
+        model.dpiCache = DPICache(values: values, value: Double(dpi))
+        model.engine?.applyConfig()
     }
 }
 
 struct DPICyclePresetsRow: View {
+    @ObservedObject private var model = AppModel.shared
     @State private var text = ""
-    @State private var configured = false
+    @State private var validationWarning: String?
+    @FocusState private var isFocused: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            TextField("Cycle presets (comma separated)", text: $text)
-                .textFieldStyle(.roundedBorder)
-                .onSubmit(save)
-            HStack {
-                HelpButton(text: "Assign 'Cycle DPI' to a button in the Buttons tab to switch presets on the fly. Empty uses defaults.")
-                Spacer()
+        let configured = model.config.dpiCycleValues != nil
+        let activePresets = model.config.dpiCycleValues
+            ?? DPICycle.recommendedPresets(from: model.dpiCache?.values ?? [])
+
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                TextField("Cycle presets (e.g. 1000, 1600, 2400, 4000)", text: $text)
+                    .textFieldStyle(.roundedBorder)
+                    .focused($isFocused)
+                    .onSubmit(save)
                 SegmentedPillRow(segments: [
+                    (label: "Apply", action: { save() }, isHighlighted: hasUnsavedChanges),
                     (label: "Reset", action: { reset() }, isHighlighted: configured)
-                ])
+                ], compact: true)
+            }
+            if let validationWarning {
+                Text(validationWarning)
+                    .font(.caption2)
+                    .foregroundStyle(.orange)
+            }
+            HStack(spacing: 5) {
+                Text(configured ? "Active presets:" : "Default presets:")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                ForEach(activePresets, id: \.self) { dpi in
+                    Text(verbatim: "\(dpi)")
+                        .font(.caption2.monospacedDigit().weight(.medium))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Capsule().fill(Color.primary.opacity(0.07)))
+                }
             }
         }
-        .padding(.top, 4)
-        .onAppear(perform: load)
+        .padding(.top, 2)
+        .onAppear(perform: syncTextFromConfig)
+        .onChange(of: model.config.dpiCycleValues) { _, _ in
+            if !isFocused { syncTextFromConfig() }
+        }
+        .onChange(of: isFocused) { _, focused in
+            if !focused && hasUnsavedChanges {
+                save()
+            }
+        }
     }
 
-    private func load() {
-        let config = AppModel.shared.configStore.load()
-        configured = config.dpiCycleValues != nil
-        text = config.dpiCycleValues?.map(String.init).joined(separator: ", ") ?? ""
+    private var hasUnsavedChanges: Bool {
+        let currentText = model.config.dpiCycleValues?.map(String.init).joined(separator: ", ") ?? ""
+        return text.trimmingCharacters(in: .whitespacesAndNewlines) != currentText
+    }
+
+    private func syncTextFromConfig() {
+        text = model.config.dpiCycleValues?.map(String.init).joined(separator: ", ") ?? ""
+        validationWarning = nil
     }
 
     private func save() {
-        var config = AppModel.shared.configStore.load()
-        config.dpiCycleValues = parse(text)
-        try? AppModel.shared.configStore.save(config)
-        configured = config.dpiCycleValues != nil
-        AppModel.shared.engine?.applyConfig()
+        let (parsed, ignoredCount) = parse(text)
+        model.updateConfig { $0.dpiCycleValues = parsed }
+        text = parsed?.map(String.init).joined(separator: ", ") ?? ""
+        validationWarning = ignoredCount > 0
+            ? "Ignored \(ignoredCount) invalid DPI value(s) outside 100–30000."
+            : nil
+        model.engine?.applyConfig()
     }
 
     private func reset() {
-        var config = AppModel.shared.configStore.load()
-        config.dpiCycleValues = nil
-        try? AppModel.shared.configStore.save(config)
-        configured = false
+        model.updateConfig { $0.dpiCycleValues = nil }
         text = ""
-        AppModel.shared.engine?.applyConfig()
+        validationWarning = nil
+        model.engine?.applyConfig()
     }
 
-    private func parse(_ input: String) -> [UInt16]? {
+    private func parse(_ input: String) -> (values: [UInt16]?, ignored: Int) {
         var seen = Set<UInt16>()
         var result: [UInt16] = []
+        var ignored = 0
         for part in input.split(separator: ",") {
-            let trimmed = part.trimmingCharacters(in: .whitespaces)
-            guard let value = UInt16(trimmed), !seen.contains(value) else { continue }
-            seen.insert(value)
-            result.append(value)
+            let trimmed = part.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { continue }
+            guard let value = UInt16(trimmed), value >= 100, value <= 30000 else {
+                ignored += 1
+                continue
+            }
+            if !seen.contains(value) {
+                seen.insert(value)
+                result.append(value)
+            }
         }
-        return result.isEmpty ? nil : result
+        return (result.isEmpty ? nil : result, ignored)
     }
 }
 

@@ -65,7 +65,11 @@ final class MenuBarController: NSObject {
 
     private func showPopover(from button: NSStatusBarButton) {
         CrashReporter.addBreadcrumb("popover shown")
+        model.refreshAccessibility()
         popover?.show(relativeTo: button.bounds, of: button, preferredEdge: .maxY)
-        popover?.contentViewController?.view.window?.makeKey()
+        if let window = popover?.contentViewController?.view.window {
+            window.makeKey()
+            window.makeFirstResponder(nil)
+        }
     }
 }

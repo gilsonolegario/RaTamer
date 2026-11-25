@@ -94,7 +94,28 @@ public enum ActionCatalog {
         for (name, symbol) in symbols where modifiers.contains(name) {
             result += symbol
         }
-        result += key.capitalized
+        result += keyDisplayName(key)
         return result
+    }
+
+    private static func keyDisplayName(_ key: String) -> String {
+        switch key {
+        case "deleteForward": return "Fwd Del"
+        case "delete": return "Delete"
+        case "pageup": return "Page Up"
+        case "pagedown": return "Page Down"
+        case "escape", "esc": return "Esc"
+        case "return", "enter": return "Return"
+        case "space": return "Space"
+        case "tab": return "Tab"
+        case "home": return "Home"
+        case "end": return "End"
+        case "up": return "↑"
+        case "down": return "↓"
+        case "left": return "←"
+        case "right": return "→"
+        default:
+            return key.count == 1 ? key.uppercased() : key.capitalized
+        }
     }
 }

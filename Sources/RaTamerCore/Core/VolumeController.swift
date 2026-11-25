@@ -108,19 +108,15 @@ public struct VolumeController: VolumeControlling {
                                selector: AudioObjectPropertySelector,
                                value: inout T, size: inout UInt32) throws {
         var address = propertyAddress(selector)
-        try withUnsafeMutablePointer(to: &value) { ptr in
-            try check(AudioObjectGetPropertyData(deviceID, &address, 0, nil, &size, ptr))
-        }
+        try check(AudioObjectGetPropertyData(deviceID, &address, 0, nil, &size, &value))
     }
 
     private static func set<T>(deviceID: AudioDeviceID,
                                selector: AudioObjectPropertySelector,
                                value: inout T) throws {
         var address = propertyAddress(selector)
-        try withUnsafePointer(to: &value) { ptr in
-            try check(AudioObjectSetPropertyData(
-                deviceID, &address, 0, nil, UInt32(MemoryLayout<T>.size), ptr))
-        }
+        try check(AudioObjectSetPropertyData(
+            deviceID, &address, 0, nil, UInt32(MemoryLayout<T>.size), &value))
     }
 
     private static func check(_ status: OSStatus) throws {

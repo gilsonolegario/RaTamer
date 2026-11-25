@@ -4,20 +4,20 @@ import RaTamerCore
 struct OnboardingView: View {
     @ObservedObject private var model = AppModel.shared
     @ObservedObject private var loginItem = LoginItem.shared
-    @State private var accessibility = false
     var onFinish: () -> Void
 
     var body: some View {
+        let accessibility = model.accessibilityTrusted
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 10) {
-                    Image(systemName: "computermouse")
+                HStack(spacing: 12) {
+                    Image(systemName: "computermouse.fill")
                         .font(.system(size: 34, weight: .medium))
                         .foregroundStyle(.tint)
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Welcome to RaTamer")
                             .font(.title2.bold())
-                        Text("Remap your Logitech MX buttons and control system volume with the thumb wheel.")
+                        Text("Remap your Logitech MX buttons, gestures, smooth scroll, and thumb wheel.")
                             .font(.callout)
                             .foregroundStyle(.secondary)
                     }
@@ -25,7 +25,7 @@ struct OnboardingView: View {
             }
             .padding(20)
 
-            Rectangle().fill(Color.gray.opacity(0.15)).frame(height: 1)
+            Rectangle().fill(Color.primary.opacity(0.08)).frame(height: 1)
 
             VStack(alignment: .leading, spacing: 16) {
                 stepRow(
@@ -38,7 +38,7 @@ struct OnboardingView: View {
                 stepRow(
                     number: "2",
                     icon: accessibility ? "checkmark.circle.fill" : "xmark.circle.fill",
-                    iconColor: accessibility ? .green : .red,
+                    iconColor: accessibility ? .green : .orange,
                     title: "Grant Accessibility",
                     detail: accessibility
                         ? "RaTamer can remap buttons and post keys."
@@ -47,14 +47,15 @@ struct OnboardingView: View {
                 if !accessibility {
                     Button("Open System Settings…") {
                         Permissions.requestAccessibility()
+                        model.refreshAccessibility()
                     }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.small)
-                    .padding(.leading, 36)
+                    .padding(.leading, 40)
                 }
                 stepRow(
                     number: "3",
-                    icon: "switch.2",
+                    icon: "power.circle.fill",
                     iconColor: .blue,
                     title: "Run at login",
                     detail: "Keep remapping available after a restart."
@@ -62,11 +63,11 @@ struct OnboardingView: View {
                 Toggle("Start at login", isOn: $loginItem.isEnabled)
                     .toggleStyle(.switch)
                     .controlSize(.small)
-                    .padding(.leading, 36)
+                    .padding(.leading, 40)
             }
             .padding(20)
 
-            Rectangle().fill(Color.gray.opacity(0.15)).frame(height: 1)
+            Rectangle().fill(Color.primary.opacity(0.08)).frame(height: 1)
 
             HStack {
                 Spacer()
@@ -76,26 +77,23 @@ struct OnboardingView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
+                .keyboardShortcut(.defaultAction)
             }
             .padding(16)
         }
         .frame(width: 500)
-        .onAppear { refreshAccessibility() }
+        .onAppear { model.refreshAccessibility() }
     }
 
     private var connectionOK: Bool {
         model.isConnected
     }
 
-    private func refreshAccessibility() {
-        accessibility = Permissions.isAccessibilityTrusted()
-    }
-
     private func stepRow(number: String, icon: String, iconColor: Color,
                          title: String, detail: String) -> some View {
         HStack(alignment: .top, spacing: 12) {
             ZStack {
-                Circle().fill(Color.gray.opacity(0.12)).frame(width: 28, height: 28)
+                Circle().fill(Color.primary.opacity(0.07)).frame(width: 28, height: 28)
                 Image(systemName: icon)
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(iconColor)

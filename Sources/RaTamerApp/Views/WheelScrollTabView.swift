@@ -9,7 +9,6 @@ import SwiftUI
 /// toggle (formerly in General).
 struct WheelScrollTabView: View {
     @ObservedObject private var model = AppModel.shared
-    @State private var config = AppModel.shared.configStore.load()
 
     // Smooth scroll state. Single source of truth — General no longer
     // duplicates the toggle/slider.
@@ -39,6 +38,8 @@ struct WheelScrollTabView: View {
 
     @State private var persistTask: Task<Void, Never>?
 
+    private var config: Config { model.config }
+
     private var displayedLevel: Double {
         level ?? SmoothnessLevel.defaultValue
     }
@@ -52,16 +53,17 @@ struct WheelScrollTabView: View {
         .formStyle(.grouped)
         .onAppear(perform: load)
         .onChange(of: model.isConnected) { _, connected in
-            // The guard in load() marks the tab unavailable when opened
-            // before the engine connects; reload so smooth toggle, slider
-            // and presets appear without closing Settings.
             if connected {
                 loaded = false
                 unavailable = false
                 load()
+            } else {
+                flushPendingPersist()
             }
         }
-        .onDisappear { persistTask?.cancel() }
+        .onDisappear {
+            flushPendingPersist()
+        }
     }
 
     // MARK: - Sections
@@ -70,7 +72,7 @@ struct WheelScrollTabView: View {
         Section {
             InvertScrollToggleRow()
         } header: {
-            HStack {
+            HStack(spacing: 6) {
                 Text("Direction")
                 HelpButton(text: "Invert if the wheel scrolls the wrong way compared to your other mice.")
             }
@@ -97,7 +99,7 @@ struct WheelScrollTabView: View {
                 smartShiftSensitivityRow()
             }
         } header: {
-            HStack {
+            HStack(spacing: 6) {
                 Text("Wheel Mode")
                 HelpButton(text: "Free-spin lets the wheel coast; ratcheted gives tactile steps; SmartShift switches automatically with scroll speed.")
             }
@@ -106,8 +108,12 @@ struct WheelScrollTabView: View {
 
     private var smoothScrollingSection: some View {
         Section {
-            if unavailable {
-                Text("Smooth scrolling unavailable on this device")
+            if !model.isConnected {
+                Text("Connect your mouse to configure smooth scrolling.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else if unavailable {
+                Text("Smooth scrolling unavailable on this device.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {
@@ -122,8 +128,8 @@ struct WheelScrollTabView: View {
                             Text("Smoothness")
                             HelpButton(text: HelpTexts.smoothness)
                             Spacer()
-                            Text(level == nil ? "custom" : "\(Int(displayedLevel))")
-                                .font(.caption.monospaced())
+                            Text(smoothnessReadout)
+                                .font(.caption.monospacedDigit().weight(.medium))
                                 .foregroundStyle(.secondary)
                         }
                         PresetSlider(value: Binding(get: { displayedLevel },
@@ -137,24 +143,35 @@ struct WheelScrollTabView: View {
                             .disabled(!enabled)
                     }
                 }
+            }
+            HStack {
                 SegmentedPillRow(segments: [
                     (label: "Scroll Thermograph…", action: { ScrollGraphWindow.shared.show() }, isHighlighted: false)
-                ])
+                ], compact: true)
                 .help("Live thermal graph of raw vs smoothed scrolling in a separate window.")
+                Spacer()
             }
         } header: {
-            HStack {
+            HStack(spacing: 6) {
                 Text("Smooth Scrolling")
                 HelpButton(text: "Replaces stepped wheel clicks with fluid glide. Fine tuning exposes the physics behind the presets.")
             }
         }
     }
 
+    private var smoothnessReadout: String {
+        guard let level else { return "Custom" }
+        if let preset = SmoothnessPreset(level: level) {
+            return "\(preset.displayName) (\(Int(level)))"
+        }
+        return "\(Int(level))"
+    }
+
     // MARK: - Fine tuning panel (from the former Advanced tab)
 
     private var advancedPanel: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Momentum").font(.caption).fontWeight(.semibold)
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Momentum").font(.caption).fontWeight(.semibold).foregroundStyle(.secondary)
             HStack(spacing: 6) {
                 Toggle("Momentum", isOn: Binding(
                     get: { momentumEnabled },
@@ -165,11 +182,13 @@ struct WheelScrollTabView: View {
                 ))
                 HelpButton(text: HelpTexts.momentum)
             }
-            sliderRow("Max boost", value: $maxBoost, range: 1.0...6.0, step: 0.1, help: HelpTexts.maxBoost)
-            sliderRow("Momentum decay", value: $momentumDecay, range: 0.5...0.98, step: 0.01, help: HelpTexts.momentumDecay)
-            sliderRow("Momentum stop", value: $momentumStopThreshold, range: 0.0...1.0, step: 0.05, help: HelpTexts.momentumStop)
+            sliderRow("Max boost", value: $maxBoost, range: 1.0...6.0, step: 0.1, format: "%.2f", help: HelpTexts.maxBoost)
+            sliderRow("Momentum decay", value: $momentumDecay, range: 0.5...0.98, step: 0.01, format: "%.2f", help: HelpTexts.momentumDecay)
+            sliderRow("Momentum stop", value: $momentumStopThreshold, range: 0.0...1.0, step: 0.05, format: "%.2f", help: HelpTexts.momentumStop)
 
-            Text("Glide").font(.caption).fontWeight(.semibold)
+            Divider().opacity(0.4)
+
+            Text("Glide").font(.caption).fontWeight(.semibold).foregroundStyle(.secondary)
             HStack(spacing: 6) {
                 Toggle("Smoothing (glide)", isOn: Binding(
                     get: { smoothingEnabled },
@@ -180,53 +199,59 @@ struct WheelScrollTabView: View {
                 ))
                 HelpButton(text: HelpTexts.smoothing)
             }
-            sliderRow("Smooth fraction", value: $smoothFraction, range: 0.02...0.15, step: 0.01, help: HelpTexts.smoothFraction)
-            sliderRow("Glide stop", value: $glideStopThreshold, range: 0.0...2.0, step: 0.1, help: HelpTexts.glideStop)
+            sliderRow("Smooth fraction", value: $smoothFraction, range: 0.02...0.15, step: 0.005, format: "%.3f", help: HelpTexts.smoothFraction)
+            sliderRow("Glide stop", value: $glideStopThreshold, range: 0.0...2.0, step: 0.1, format: "%.2f", help: HelpTexts.glideStop)
 
-            Text("Feed").font(.caption).fontWeight(.semibold)
-            sliderRow("Pixels per notch", value: $pixelsPerNotch, range: 1...200, step: 1, help: HelpTexts.pixelsPerNotch)
-            sliderRow("Accel window (s)", value: $accelerationWindow, range: 0.01...0.20, step: 0.01, help: HelpTexts.accelWindow)
-            sliderRow("Feed gap timeout (s)", value: $feedGapTimeout, range: 0.02...0.30, step: 0.01, help: HelpTexts.feedGap)
+            Divider().opacity(0.4)
 
-            Text("Bounce").font(.caption).fontWeight(.semibold)
-            sliderRow("Bounce window (s)", value: $bounceWindow, range: 0.0...0.20, step: 0.005, help: HelpTexts.bounceWindow)
-            sliderRow("Bounce ratio", value: $bounceRatio, range: 0.1...1.0, step: 0.05, help: HelpTexts.bounceRatio)
-            sliderRow("Bounce damping", value: $bounceDamping, range: 0.0...1.0, step: 0.05, help: HelpTexts.bounceDamping)
+            Text("Feed & Ratchet Filtering").font(.caption).fontWeight(.semibold).foregroundStyle(.secondary)
+            sliderRow("Pixels per notch", value: $pixelsPerNotch, range: 1...200, step: 1, format: "%.0f", help: HelpTexts.pixelsPerNotch)
+            sliderRow("Accel window (s)", value: $accelerationWindow, range: 0.01...0.20, step: 0.01, format: "%.2f", help: HelpTexts.accelWindow)
+            sliderRow("Feed gap timeout (s)", value: $feedGapTimeout, range: 0.02...0.30, step: 0.01, format: "%.2f", help: HelpTexts.feedGap)
+            sliderRow("Bounce damping", value: $bounceDamping, range: 0.0...1.0, step: 0.05, format: "%.2f", help: HelpTexts.bounceDamping)
 
-            Text("Direction").font(.caption).fontWeight(.semibold)
             HStack(spacing: 6) {
                 Stepper("Reversal confirmation: \(reversalConfirmation)",
                         value: $reversalConfirmation, in: 1...5)
                     .onChange(of: reversalConfirmation) { _, _ in customChange() }
                 HelpButton(text: HelpTexts.reversalConfirmation)
             }
-            sliderRow("Direction threshold", value: $directionThreshold, range: 0.0...5.0, step: 0.25, help: HelpTexts.directionThreshold)
+            sliderRow("Direction threshold", value: $directionThreshold, range: 0.0...5.0, step: 0.25, format: "%.2f", help: HelpTexts.directionThreshold)
+
+            HStack {
+                Spacer()
+                Button("Reset Fine Tuning") {
+                    resetToDefault()
+                }
+                .controlSize(.small)
+            }
+            .padding(.top, 2)
         }
-        .padding(.top, 2)
+        .padding(.top, 4)
     }
 
     private func sliderRow(_ title: String,
                            value: Binding<Double>,
                            range: ClosedRange<Double>,
                            step: Double,
+                           format: String,
                            help: String) -> some View {
         HStack {
-            Text(title).frame(width: 130, alignment: .leading)
+            Text(title).frame(width: 136, alignment: .leading)
             HelpButton(text: help)
             Slider(value: Binding(get: { value.wrappedValue },
                                   set: { newValue in
-                                      withAnimation(.snappy(duration: 0.25)) {
-                                          value.wrappedValue = newValue
-                                      }
+                                      value.wrappedValue = newValue
                                       customChange()
                                   }),
                    in: range, step: step)
             .controlSize(.small)
             .tint(Color.accentColor)
             .frame(height: 22)
-            Text(String(format: "%.3f", value.wrappedValue))
-                .font(.caption.monospaced())
-                .frame(width: 52, alignment: .trailing)
+            Text(String(format: format, value.wrappedValue))
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(.secondary)
+                .frame(width: 48, alignment: .trailing)
         }
     }
 
@@ -244,7 +269,7 @@ struct WheelScrollTabView: View {
             .controlSize(.small)
             .tint(colorByValue(for: smartShiftSensitivity))
             .frame(height: 22)
-            Text("\(Int(smartShiftSensitivity))")
+            Text(verbatim: "\(Int(smartShiftSensitivity))")
                 .font(.caption)
                 .monospacedDigit()
                 .foregroundStyle(.secondary)
@@ -261,21 +286,19 @@ struct WheelScrollTabView: View {
     }
 
     private func setSmartShiftMode(_ mode: SmartShiftMode?) {
-        config.smartShiftMode = mode
+        let updated = model.updateConfig { $0.smartShiftMode = mode }
         if mode == .smartshift {
-            smartShiftSensitivity = Double(config.smartShiftSensitivity ?? 16)
+            smartShiftSensitivity = Double(updated.smartShiftSensitivity ?? 16)
         }
-        try? AppModel.shared.configStore.save(config)
-        AppModel.shared.engine?.applyConfig()
+        model.engine?.applyConfig()
     }
 
     private func setSmartShiftSensitivity(_ value: Int) {
-        config.smartShiftSensitivity = value
-        try? AppModel.shared.configStore.save(config)
-        AppModel.shared.engine?.applyConfig()
+        model.updateConfig { $0.smartShiftSensitivity = value }
+        model.engine?.applyConfig()
     }
 
-    // MARK: - Smooth scroll application (unchanged from the former Advanced tab)
+    // MARK: - Smooth scroll application
 
     private func setLevel(_ newValue: Double) {
         guard loaded else { return }
@@ -288,6 +311,14 @@ struct WheelScrollTabView: View {
         pixelsPerNotch = p.pixelsPerNotch
         smoothFraction = p.smoothFraction
         glideStopThreshold = p.glideStopThreshold
+        accelerationWindow = p.accelerationWindow
+        feedGapTimeout = p.feedGapTimeout
+        momentumStopThreshold = p.momentumStopThreshold
+        bounceWindow = p.bounceWindow
+        bounceRatio = p.bounceRatio
+        bounceDamping = p.bounceDamping
+        reversalConfirmation = p.reversalConfirmation
+        directionThreshold = p.directionThreshold
         applyLive()
     }
 
@@ -333,28 +364,54 @@ struct WheelScrollTabView: View {
     }
 
     private func apply() {
-        var config = AppModel.shared.configStore.load()
-        config.smoothScrollEnabled = enabled
-        config.smoothScrollLevel = level
-        config.smoothScrollAdvanced = storedAdvanced
-        try? AppModel.shared.configStore.save(config)
-        AppModel.shared.engine?.applyConfig()
+        persistTask?.cancel()
+        persistTask = nil
+        let targetEnabled = enabled
+        let targetLevel = level
+        let targetAdvanced = storedAdvanced
+        model.updateConfig {
+            $0.smoothScrollEnabled = targetEnabled
+            $0.smoothScrollLevel = targetLevel
+            $0.smoothScrollAdvanced = targetAdvanced
+        }
+        model.engine?.applyConfig()
     }
 
     /// Persists config debounced: dragging the smoothness slider fires this
     /// per tick, and synchronous JSON I/O on the main thread here shows up as
     /// a wheel hitch. Live parameter application stays immediate above.
     private func applyLive() {
-        AppModel.shared.engine?.updateSmoothParameters(currentParams())
+        model.engine?.updateSmoothParameters(currentParams())
         persistTask?.cancel()
-        persistTask = Task { [enabled, level, storedAdvanced] in
+        let targetEnabled = enabled
+        let targetLevel = level
+        let targetAdvanced = storedAdvanced
+        persistTask = Task {
             try? await Task.sleep(nanoseconds: 300_000_000)
             guard !Task.isCancelled else { return }
-            var config = AppModel.shared.configStore.load()
-            config.smoothScrollEnabled = enabled
-            config.smoothScrollLevel = level
-            config.smoothScrollAdvanced = storedAdvanced
-            try? AppModel.shared.configStore.save(config)
+            await MainActor.run {
+                guard !Task.isCancelled else { return }
+                self.persistTask = nil
+                self.model.updateConfig {
+                    $0.smoothScrollEnabled = targetEnabled
+                    $0.smoothScrollLevel = targetLevel
+                    $0.smoothScrollAdvanced = targetAdvanced
+                }
+            }
+        }
+    }
+
+    private func flushPendingPersist() {
+        guard let task = persistTask else { return }
+        task.cancel()
+        persistTask = nil
+        let targetEnabled = enabled
+        let targetLevel = level
+        let targetAdvanced = storedAdvanced
+        model.updateConfig {
+            $0.smoothScrollEnabled = targetEnabled
+            $0.smoothScrollLevel = targetLevel
+            $0.smoothScrollAdvanced = targetAdvanced
         }
     }
 
@@ -363,16 +420,21 @@ struct WheelScrollTabView: View {
     }
 
     private func load() {
-        config = AppModel.shared.configStore.load()
-        smartShiftSensitivity = Double(config.smartShiftSensitivity ?? 16)
+        let cfg = model.config
+        smartShiftSensitivity = Double(cfg.smartShiftSensitivity ?? 16)
 
-        guard AppModel.shared.engine?.hiResWheelService != nil else {
+        guard model.isConnected else {
+            unavailable = false
+            return
+        }
+        guard model.engine?.hiResWheelService != nil else {
             unavailable = true
             return
         }
-        enabled = config.smoothScrollEnabled == true
-        level = config.smoothScrollLevel
-        let params = config.smoothScrollAdvanced
+        unavailable = false
+        enabled = cfg.smoothScrollEnabled == true
+        level = cfg.smoothScrollLevel
+        let params = cfg.smoothScrollAdvanced
             ?? SmoothnessLevel.parameters(level: level ?? SmoothnessLevel.defaultValue,
                                           multiplier: 8, invert: false)
         maxBoost = params.maxBoost
@@ -398,52 +460,35 @@ struct WheelScrollTabView: View {
 struct InvertScrollToggleRow: View {
     @State private var inverted = false
     @State private var loaded = false
-    @State private var unavailable = false
     @ObservedObject private var model = AppModel.shared
 
     var body: some View {
-        Group {
-            if unavailable {
-                Text("Scroll direction feature unavailable on this device")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            } else {
-                Toggle("Invert scroll direction", isOn: $inverted)
-                    .onChange(of: inverted) { _, _ in
-                        guard loaded else { return }
-                        apply()
-                    }
+        Toggle("Invert scroll direction", isOn: $inverted)
+            .onChange(of: inverted) { _, _ in
+                guard loaded else { return }
+                apply()
             }
-        }
-        .onAppear {
-            
-            load()
-        }
-        .onChange(of: model.isConnected) { _, connected in
-            
-            if connected {
-                unavailable = false
-                loaded = false
+            .onAppear {
                 load()
             }
-        }
+            .onChange(of: model.isConnected) { _, connected in
+                if connected {
+                    loaded = false
+                    load()
+                }
+            }
     }
 
     private func load() {
-        guard let service = AppModel.shared.engine?.hiResWheelService else {
-            unavailable = false
+        let stored = model.config.invertScrollDirection
+        guard let service = model.engine?.hiResWheelService else {
+            self.inverted = stored ?? false
+            self.loaded = true
             return
         }
-        let stored = AppModel.shared.configStore.load().invertScrollDirection
         DispatchQueue.global(qos: .utility).async {
-            let hasInvert = (try? service.getInfo())?.hasInvert == true
-            _ = hasInvert
             let inverted = stored ?? ((try? service.getWheelMode())?.inverted ?? false)
             DispatchQueue.main.async {
-                // Software invert is always available via config — do not gate
-                // the toggle on hasInvert; hasInvert only tells if hardware
-                // also inverts (hasInvert false just means we won't read hardware state).
-                self.unavailable = false
                 self.inverted = inverted
                 self.loaded = true
             }
@@ -451,9 +496,7 @@ struct InvertScrollToggleRow: View {
     }
 
     private func apply() {
-        var config = AppModel.shared.configStore.load()
-        config.invertScrollDirection = inverted
-        try? AppModel.shared.configStore.save(config)
-        AppModel.shared.engine?.applyConfig()
+        model.updateConfig { $0.invertScrollDirection = inverted }
+        model.engine?.applyConfig()
     }
 }

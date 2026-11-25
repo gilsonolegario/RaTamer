@@ -46,10 +46,7 @@ final class EngineController {
     private var watchdog: ConnectionWatchdog?
     private var pingTimer: DispatchSourceTimer?
     private var frontmostObserver: NSObjectProtocol?
-    private var lastWasTerminal = false
     private static let pingInterval: TimeInterval = 2.0
-    private var lastReportAt = Date.distantPast
-    private let lastReportLock = NSLock()
     private let actionThrottle = ActionThrottle(minInterval: 0.25, holdTimeout: 10)
     private static let throttleLog = RateLimitedLogger(interval: 5.0)
     private static let retryBaseDelay: TimeInterval = 2.0
@@ -103,6 +100,7 @@ final class EngineController {
     var onButtonEvent: ((_ cid: UInt16) -> Void)?
     var onButtonReleased: ((_ cid: UInt16) -> Void)?
     var onControlsChanged: (([ControlInfo]) -> Void)?
+    var onDPIChanged: ((_ dpi: UInt16) -> Void)?
     private(set) var isConnected = false
     private(set) var controls: [ControlInfo] = []
     private(set) var deviceName = "HID++ device"
@@ -252,12 +250,26 @@ final class EngineController {
             return true
         } catch {
             isConnected = false
+            clearServices()
             session?.close()
             session = nil
             onConnectionState?(.disconnected)
             onStatus?("Not connected: \(error)")
             scheduleRetry()
             return false
+        }
+    }
+
+    /// Re-checks Accessibility trust at runtime (e.g. when returning from
+    /// System Settings) so the thumb wheel tap and status text activate
+    /// immediately without requiring a manual reconnect.
+    func recheckAccessibility() {
+        guard isConnected, !stopped else { return }
+        if Permissions.isAccessibilityTrusted() {
+            scrollWheelTap?.start()
+            onStatus?("Connected — \(controls.count) controls")
+        } else {
+            onStatus?("Connected — grant Accessibility for shortcuts/gestures")
         }
     }
 
@@ -308,10 +320,10 @@ final class EngineController {
         guard let control = controls.first(where: { $0.cid == cid }), control.isDivertable else { return }
         refreshConfig()
         ioQueue.async { [weak self] in
-            guard let self, let controlsService = self.controlsService, !self.stopped else { return }
+            guard let self, let controlsService = self.controlsService, !self.stopped, self.enabled else { return }
             try? controlsService.setDiverted(cid: control.cid,
                                              diverted: action?.requiresDivert ?? false,
-                                             rawXY: isGesture(action))
+                                             rawXY: self.isGesture(action))
         }
     }
 
@@ -399,7 +411,9 @@ final class EngineController {
     }
 
     func stop() {
+        let wasConnected = isConnected
         stopped = true
+        isConnected = false
         retryGeneration += 1
         cancelRecovery()
         timerLock.lock()
@@ -409,8 +423,13 @@ final class EngineController {
         timerLock.unlock()
         stopFrontmostObserver()
         stopWakeObserver()
-        restoreNativeDiverts()
-        restoreSmoothScroll()
+        if wasConnected {
+            restoreNativeDiverts()
+            restoreSmoothScroll()
+        } else {
+            smoothCoordinator?.stop()
+            smoothCoordinator = nil
+        }
         gestureDetector.end()
         gestureCID = nil
         scrollWheelTap?.stop()
@@ -425,8 +444,17 @@ final class EngineController {
         loopExitSignal = nil
         loopThread = nil
         monitor = nil
+        clearServices()
         session?.close()
         session = nil
+    }
+
+    private func clearServices() {
+        controlsService = nil
+        smartShiftService = nil
+        _dpiService = nil
+        _batteryService = nil
+        _hiResWheelService = nil
     }
 
     private func applyDiverts(controlsService: ReprogrammableControls) {
@@ -540,12 +568,11 @@ final class EngineController {
             let sensorList = (try? service.getSensorDpiList(sensor: 0)) ?? []
             let presets = config.dpiCycleValues ?? DPICycle.recommendedPresets(from: sensorList)
             guard let next = DPICycle.next(current: current, presets: presets) else { return }
-            var newConfig = config
-            newConfig.dpiValue = next
-            try? self.configStore.save(newConfig)
+            _ = try? self.configStore.update { $0.dpiValue = next }
             self.refreshConfig()
             try? service.setSensorDpi(sensor: 0, dpi: next)
             Self.log.info("dpi cycle: \(current) -> \(next)")
+            self.onDPIChanged?(next)
         }
     }
 
@@ -650,16 +677,12 @@ final class EngineController {
     /// alone would leave the wheel dead in the terminal).
     private func startFrontmostObserver() {
         guard frontmostObserver == nil else { return }
-        FrontmostAppGuard.invalidate()
-        lastWasTerminal = FrontmostAppGuard.isFrontmostTerminal()
         frontmostObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didActivateApplicationNotification,
             object: nil,
             queue: .main
-        ) { [weak self] notification in
-            let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
-                ?? NSWorkspace.shared.frontmostApplication
-            self?.handleFrontmostAppChanged(to: app)
+        ) { [weak self] _ in
+            self?.handleFrontmostAppChanged()
         }
     }
 
@@ -694,11 +717,9 @@ final class EngineController {
         }
     }
 
-    private func handleFrontmostAppChanged(to app: NSRunningApplication?) {
-        FrontmostAppGuard.update(bundleID: app?.bundleIdentifier)
+    private func handleFrontmostAppChanged() {
+        FrontmostAppGuard.invalidate()
         let isTerminal = FrontmostAppGuard.isFrontmostTerminal()
-        guard isTerminal != lastWasTerminal else { return }
-        lastWasTerminal = isTerminal
         ioQueue.async { [weak self] in
             guard let self, let service = self._hiResWheelService, !self.stopped else { return }
             if isTerminal {
@@ -757,21 +778,6 @@ final class EngineController {
                        leeway: .milliseconds(200))
         timer.setEventHandler { [weak self] in
             guard let self, let session = self.session, !self.stopped else { return }
-            self.lastReportLock.lock()
-            let timeSinceReport = Date().timeIntervalSince(self.lastReportAt)
-            self.lastReportLock.unlock()
-
-            // If we recently received reports (e.g. wheel, buttons, rawXY),
-            // the device is actively communicating. Suppress the ping so
-            // the mailbox is never blocked and scroll reports are never delayed.
-            if timeSinceReport < Self.pingInterval {
-                self.timerLock.lock()
-                let wd = self.watchdog
-                self.timerLock.unlock()
-                wd?.report(ok: true)
-                return
-            }
-
             let answered = (try? session.ping(deviceIndex: self.deviceIndex)) ?? false
             self.timerLock.lock()
             let wd = self.watchdog
@@ -794,9 +800,6 @@ final class EngineController {
             while !self.stopped {
                 autoreleasepool {
                     if var report = try? session.readReport(timeout: .greatestFiniteMagnitude) {
-                        self.lastReportLock.lock()
-                        self.lastReportAt = Date()
-                        self.lastReportLock.unlock()
                         _ = monitor.feed(report)
                         session.recycle(&report)
                     }
@@ -829,6 +832,7 @@ final class EngineController {
         }
         Self.log.info("press cid=0x\(String(format: "%04X", cid), privacy: .public) action=\(String(describing: action), privacy: .public)")
         if case .gesture(let gestureConfig) = action {
+            onButtonEvent?(cid)
             gestureDetector.begin(config: gestureConfig)
             gestureCID = cid
             return
@@ -839,6 +843,16 @@ final class EngineController {
             return
         }
         onButtonEvent?(cid)
+        if case .runShortcut = action {
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                do {
+                    try self?.actionEngine.execute(action)
+                } catch {
+                    Self.log.error("execute failed: \(String(describing: error), privacy: .public)")
+                }
+            }
+            return
+        }
         do {
             try actionEngine.execute(action)
         } catch {
@@ -874,10 +888,23 @@ final class EngineController {
 
     private func executeThumbWheelNotch(_ direction: ThumbWheel.Direction) {
         guard let action = thumbWheelConfigAction(direction), action != .disabled else { return }
+        if case .runShortcut = action {
+            let key = direction == .left ? "wheel-left" : "wheel-right"
+            guard actionThrottle.shouldFire(key) else { return }
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                guard let self, !self.stopped else { return }
+                do {
+                    try self.actionEngine.execute(action)
+                } catch {
+                    Self.log.error("thumb wheel execute failed: \(String(describing: error), privacy: .public)")
+                }
+            }
+            return
+        }
         ioQueue.async { [weak self] in
             guard let self, !self.stopped else { return }
             let key = direction == .left ? "wheel-left" : "wheel-right"
-            guard self.actionThrottle.shouldFire(key, overrideInterval: 0.04) else { return }
+            guard self.actionThrottle.shouldFire(key) else { return }
             do {
                 try self.actionEngine.execute(action)
             } catch {

@@ -30,15 +30,21 @@ final class BatteryMonitor: ObservableObject {
         timer = nil
     }
 
-    private func refresh() {
-        // `refresh` is called on the main thread (Timer on main run loop).
-        // Only poll if the engine is currently connected, preventing stalled
-        // background requests to an unreachable device.
-        guard let engine = AppModel.shared.engine, engine.isConnected,
-              let service = engine.batteryStatusService else {
-            return
+    func clear() {
+        DispatchQueue.main.async { [weak self] in
+            self?.info = nil
         }
+    }
+
+    func refresh() {
+        // `refresh` is always called on the main thread (Timer on main run loop),
+        // so capturing the service here before hopping to background is safe.
+        let service = AppModel.shared.engine?.batteryStatusService
         DispatchQueue.global(qos: .utility).async { [weak self] in
+            guard let service else {
+                DispatchQueue.main.async { self?.info = nil }
+                return
+            }
             if let info = try? service.getBatteryInfo() {
                 DispatchQueue.main.async { self?.info = info }
             }

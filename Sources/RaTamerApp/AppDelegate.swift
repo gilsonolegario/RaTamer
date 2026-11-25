@@ -21,7 +21,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             CrashReporter.addBreadcrumb("device disconnected")
             Notifier.post(title: "RaTamer", body: "\(AppModel.shared.deviceName) disconnected")
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
             OnboardingWindow.shared.onFinish = { [weak self] in
                 self?.menuBar?.showPopover()
             }
@@ -91,6 +91,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                                    action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)),
                                    keyEquivalent: ""))
         appMenu.addItem(.separator())
+        appMenu.addItem(NSMenuItem(title: "Settings…",
+                                   action: #selector(showSettings),
+                                   keyEquivalent: ","))
         appMenu.addItem(graphItem)
         appMenu.addItem(.separator())
         appMenu.addItem(NSMenuItem(title: "Quit RaTamer",

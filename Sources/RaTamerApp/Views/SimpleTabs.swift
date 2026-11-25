@@ -4,83 +4,113 @@ import SwiftUI
 
 struct AboutTabView: View {
     @ObservedObject private var model = AppModel.shared
+
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: 14) {
+        VStack(alignment: .leading, spacing: 14) {
+            RatCard {
+                HStack(spacing: 16) {
                     if let icon = NSApp.applicationIconImage {
                         Image(nsImage: icon)
                             .resizable()
-                            .frame(width: 96, height: 96)
-                            .cornerRadius(21)
+                            .frame(width: 72, height: 72)
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     }
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("RaTamer").font(.title2).fontWeight(.bold)
-                        Text("Version \(version)")
+                        HStack(spacing: 8) {
+                            Text("RaTamer")
+                                .font(.title2.weight(.bold))
+                            Text(verbatim: "v\(version)")
+                                .font(.caption.monospacedDigit().weight(.medium))
+                                .foregroundStyle(.secondary)
+                                .padding(.horizontal, 7)
+                                .padding(.vertical, 2)
+                                .background(Capsule().fill(Color.primary.opacity(0.07)))
+                        }
+                        Text("Native replacement for Logitech Options+ over HID++ 2.0.")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                        Text("Controls are captured via HID++ divert and restored automatically on quit.")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
+                    Spacer()
+                }
+            }
+
+            RatSectionCard(title: "Hardware") {
+                VStack(spacing: 8) {
+                    HStack {
+                        Text("Device")
+                        Spacer()
+                        Text(model.isConnected ? model.deviceName : "Not connected")
                             .foregroundStyle(.secondary)
                     }
+                    Divider().opacity(0.4)
+                    HStack {
+                        Text("Controls")
+                        Spacer()
+                        Text(model.isConnected ? "\(model.controls.count) detected" : "—")
+                            .foregroundStyle(.secondary)
+                    }
+                    Divider().opacity(0.4)
+                    BatteryStatusRow()
                 }
-                Text("Native replacement for Logitech Options+ for the \(model.deviceName).")
-                Text("Buttons are captured via HID++ divert and remapped. Native behavior is restored when the app quits.")
-                Text("Run without Logitech Options installed.")
-                Divider()
-                Text("Hardware")
-                    .font(.caption)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(.secondary)
-                HStack {
-                    Text("Device")
-                    Spacer()
-                    Text(model.deviceName)
-                        .foregroundStyle(.secondary)
-                }
-                BatteryStatusRow()
             }
-            .padding()
-            .frame(maxWidth: .infinity, alignment: .leading)
+
+            RatSectionCard(title: "Tools") {
+                HStack(spacing: 8) {
+                    SegmentedPillRow(segments: [
+                        (label: "Show Welcome Guide…", action: { OnboardingWindow.shared.show() }, isHighlighted: false),
+                        (label: "Scroll Thermograph…", action: { ScrollGraphWindow.shared.show() }, isHighlighted: false),
+                        (label: "Reveal Config", action: {
+                            NSWorkspace.shared.activateFileViewerSelecting([ConfigStore.defaultFileURL()])
+                        }, isHighlighted: false),
+                    ], compact: true)
+                    Spacer()
+                }
+                .padding(.top, 2)
+            }
         }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var version: String {
-        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.6"
     }
 }
 
 /// Moved from GeneralTabView — device status belongs in About.
 struct BatteryStatusRow: View {
-    @State private var info: BatteryInfo?
+    @ObservedObject private var battery = BatteryMonitor.shared
+    @ObservedObject private var model = AppModel.shared
 
     var body: some View {
-        Group {
-            if let info {
-                HStack {
+        HStack {
+            Text("Battery")
+            Spacer()
+            if let info = battery.info {
+                HStack(spacing: 6) {
                     Circle()
                         .fill(color(for: info))
-                        .frame(width: 10, height: 10)
-                    Text(title(for: info))
-                    Spacer()
+                        .frame(width: 8, height: 8)
+                    Text(BatteryDisplay.title(for: info).replacingOccurrences(of: "Battery: ", with: ""))
+                        .foregroundStyle(.secondary)
                 }
             } else {
-                Text("Battery feature unavailable on this device")
+                Text(model.isConnected ? "Unavailable on this device" : "—")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
         }
-        .onAppear(perform: load)
-    }
-
-    private func load() {
-        guard let service = AppModel.shared.engine?.batteryStatusService else { return }
-        DispatchQueue.global(qos: .utility).async {
-            let info = try? service.getBatteryInfo()
-            DispatchQueue.main.async { self.info = info }
+        .onAppear {
+            BatteryMonitor.shared.refresh()
         }
     }
 
     private func color(for info: BatteryInfo) -> Color {
-        switch info.state {
-        case .full: return .green
-        default: break
+        if info.state == .full || info.state == .charging || info.state == .recharging {
+            return .green
         }
         switch info.level {
         case .full: return .green
@@ -89,9 +119,5 @@ struct BatteryStatusRow: View {
         case .critical: return .red
         case .unknown: return .gray
         }
-    }
-
-    private func title(for info: BatteryInfo) -> String {
-        BatteryDisplay.title(for: info)
     }
 }

@@ -71,17 +71,9 @@ public final class ScrollWheelTap {
         return true
     }
 
-    private static let handle: CGEventTapCallBack = { _, type, event, refcon in
+    private static let handle: CGEventTapCallBack = { _, _, event, refcon in
         guard let refcon else { return Unmanaged.passUnretained(event) }
         let tap = Unmanaged<ScrollWheelTap>.fromOpaque(refcon).takeUnretainedValue()
-        if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
-            if let port = tap.tap {
-                CGEvent.tapEnable(tap: port, enable: true)
-                ScrollWheelTap.log.notice("scroll wheel tap re-enabled after \(type == .tapDisabledByTimeout ? "timeout" : "user input")")
-            }
-            return Unmanaged.passUnretained(event)
-        }
-        guard type == .scrollWheel else { return Unmanaged.passUnretained(event) }
         let deltaX = event.getIntegerValueField(.scrollWheelEventDeltaAxis2)
         let deltaY = event.getIntegerValueField(.scrollWheelEventDeltaAxis1)
         let isContinuous = event.getIntegerValueField(.scrollWheelEventIsContinuous)

@@ -21,6 +21,7 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
 
     func show() {
         makeWindowIfNeeded()
+        AppModel.shared.refreshAccessibility()
         window?.makeKeyAndOrderFront(nil)
         window?.makeFirstResponder(nil)
         NSApp.activate(ignoringOtherApps: true)
@@ -28,12 +29,12 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
     }
 
     func close() {
-        teardownObservers()
+        cancelPendingResize()
         window?.close()
     }
 
     func windowWillClose(_ notification: Notification) {
-        teardownObservers()
+        cancelPendingResize()
         // Fechar o Settings promovia o app a .regular no macOS 27;
         // volta para .accessory se o usuário pediu menu bar only.
         ActivationPolicyHelper.apply(reason: "settings-close")
@@ -41,6 +42,12 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
 
     deinit {
         teardownObservers()
+    }
+
+    private func cancelPendingResize() {
+        resizeWorkItem?.cancel()
+        resizeWorkItem = nil
+        isLiveResizing = false
     }
 
     private func teardownObservers() {
@@ -52,8 +59,7 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
             NotificationCenter.default.removeObserver(observer)
             resizeObserver = nil
         }
-        resizeWorkItem?.cancel()
-        isLiveResizing = false
+        cancelPendingResize()
     }
 
     private func makeWindowIfNeeded() {
@@ -78,6 +84,7 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
         window.styleMask = [.titled, .closable, .resizable]
         window.isReleasedWhenClosed = false
         window.delegate = self
+        window.center()
         self.window = window
 
         // Track user drags: hugging the content height mid-drag is what made
@@ -107,9 +114,9 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
     private func scheduleResize(_ contentHeight: CGFloat) {
         guard !isLiveResizing else { return }
         let delta = abs(contentHeight - lastContentHeight)
-        guard delta >= 8 else { return }
+        guard delta >= 1 else { return }
         resizeWorkItem?.cancel()
-        let delay: TimeInterval = delta > 140 ? 0.08 : 0.04
+        let delay: TimeInterval = delta > 140 ? 0.08 : 0.02
         lastContentHeight = contentHeight
         let work = DispatchWorkItem { [weak self] in
             self?.resizeToContent(contentHeight)

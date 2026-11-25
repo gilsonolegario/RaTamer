@@ -19,6 +19,9 @@ if command -v security >/dev/null 2>&1; then
             security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "${BUILD_KEYCHAIN_PASSWORD}" "${DEFAULT_KEYCHAIN}" 2>/dev/null || {
                 echo "Warning: could not configure keychain partitions; codesign may prompt for permission."
             }
+        else
+            security unlock-keychain "${DEFAULT_KEYCHAIN}" 2>/dev/null || \
+                echo "Note: keychain is locked; codesign may prompt. Export BUILD_KEYCHAIN_PASSWORD to avoid prompts."
         fi
     else
         echo "Warning: default keychain not found; signing may fail."

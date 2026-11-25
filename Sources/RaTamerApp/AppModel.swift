@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import RaTamerCore
 
@@ -10,6 +11,8 @@ final class AppModel: ObservableObject {
     static let shared = AppModel()
     let configStore = ConfigStore(fileURL: ConfigStore.defaultFileURL())
     private(set) var engine: EngineController?
+    @Published var config: Config
+    @Published var accessibilityTrusted: Bool
     @Published var statusText = "Starting…"
     @Published var isConnected = false
     @Published var isReconnecting = false
@@ -28,8 +31,59 @@ final class AppModel: ObservableObject {
         }
     }
     @Published var dpiCache: DPICache?
+    private var activeObserver: NSObjectProtocol?
 
-    private init() {}
+    private init() {
+        self.config = configStore.load()
+        self.accessibilityTrusted = Permissions.refreshAccessibilityTrusted()
+        self.activeObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didBecomeActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.refreshAccessibility()
+        }
+    }
+
+    deinit {
+        if let activeObserver {
+            NotificationCenter.default.removeObserver(activeObserver)
+        }
+    }
+
+    func refreshAccessibility() {
+        let trusted = Permissions.refreshAccessibilityTrusted()
+        if trusted != accessibilityTrusted {
+            accessibilityTrusted = trusted
+        }
+        engine?.recheckAccessibility()
+    }
+
+    @discardableResult
+    func reloadConfig() -> Config {
+        let latest = configStore.load()
+        if Thread.isMainThread {
+            self.config = latest
+        } else {
+            DispatchQueue.main.async { self.config = latest }
+        }
+        return latest
+    }
+
+    @discardableResult
+    func updateConfig(_ transform: (inout Config) -> Void) -> Config {
+        let updated = (try? configStore.update(transform)) ?? {
+            var copy = configStore.load()
+            transform(&copy)
+            return copy
+        }()
+        if Thread.isMainThread {
+            self.config = updated
+        } else {
+            DispatchQueue.main.async { self.config = updated }
+        }
+        return updated
+    }
 
     func startEngine() {
         let engine = EngineController(configStore: configStore)
@@ -45,16 +99,20 @@ final class AppModel: ObservableObject {
                     self.isReconnecting = false
                     self.deviceName = engine.deviceName
                     self.capabilities = engine.capabilities
-                    if self.dpiCache == nil {
-                        self.preloadDPI()
-                    }
+                    self.preloadDPI()
+                    BatteryMonitor.shared.refresh()
                 case .disconnected:
                     self.isConnected = false
                     self.isReconnecting = false
                     self.dpiCache = nil
+                    self.pressMonitor.pressed.removeAll()
+                    BatteryMonitor.shared.clear()
                 case .reconnecting:
                     self.isConnected = false
                     self.isReconnecting = true
+                    self.dpiCache = nil
+                    self.pressMonitor.pressed.removeAll()
+                    BatteryMonitor.shared.clear()
                 }
             }
         }
@@ -67,21 +125,41 @@ final class AppModel: ObservableObject {
         engine.onButtonReleased = { [weak self] cid in
             DispatchQueue.main.async { self?.pressMonitor.pressed.remove(cid) }
         }
-        _ = engine.start()
+        engine.onDPIChanged = { [weak self] dpi in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.config = self.configStore.load()
+                if var cache = self.dpiCache {
+                    cache.value = Double(dpi)
+                    self.dpiCache = cache
+                } else {
+                    self.preloadDPI()
+                }
+            }
+        }
+        let started = engine.start()
         self.engine = engine
-        preloadDPI()
+        if started {
+            preloadDPI()
+            BatteryMonitor.shared.refresh()
+        }
     }
 
     func preloadDPI() {
         // Capture the service and stored DPI on the calling (main) thread before
-        // hopping to background. `startEngine` is always called on main, so this
-        // is safe without additional synchronization.
+        // hopping to background.
         let service = engine?.dpiService
         let stored = configStore.load().dpiValue
         DispatchQueue.global(qos: .utility).async { [weak self] in
-            guard let service else { return }
+            guard let service else {
+                DispatchQueue.main.async { self?.dpiCache = nil }
+                return
+            }
             let values = (try? service.getSensorDpiList(sensor: 0)) ?? []
-            guard values.count > 1 else { return }
+            guard values.count > 1 else {
+                DispatchQueue.main.async { self?.dpiCache = nil }
+                return
+            }
             var value = 1000.0
             if let stored {
                 value = Double(stored)

@@ -318,7 +318,7 @@ public enum ConfigStoreError: Error {
 
 public final class ConfigStore {
     private let fileURL: URL
-    private let lock = NSLock()
+    private let lock = NSRecursiveLock()
     private var cached: Config?
     private var cachedMtime: Date?
 
@@ -335,8 +335,10 @@ public final class ConfigStore {
     }
 
     public func load() -> Config {
+        lock.lock()
+        defer { lock.unlock() }
         let mtime = fileModificationDate()
-        if let cached = cachedValue(matching: mtime) {
+        if let cached, cachedMtime == mtime {
             return cached
         }
         guard let data = try? Data(contentsOf: fileURL) else {
@@ -371,6 +373,8 @@ public final class ConfigStore {
     }
 
     public func loadStrict() throws -> Config {
+        lock.lock()
+        defer { lock.unlock() }
         guard let data = try? Data(contentsOf: fileURL) else {
             return Config.empty()
         }
@@ -378,8 +382,8 @@ public final class ConfigStore {
     }
 
     public func save(_ config: Config) throws {
-        let parent = fileURL.deletingLastPathComponent()
-        try? FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
+        lock.lock()
+        defer { lock.unlock() }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         let data = try encoder.encode(config)
@@ -387,16 +391,19 @@ public final class ConfigStore {
         store(cached: config, mtime: fileModificationDate())
     }
 
+    /// Atomically loads the latest config, applies `transform`, and persists it.
+    @discardableResult
+    public func update(_ transform: (inout Config) -> Void) throws -> Config {
+        lock.lock()
+        defer { lock.unlock() }
+        var config = load()
+        transform(&config)
+        try save(config)
+        return config
+    }
 
     private func fileModificationDate() -> Date? {
         (try? FileManager.default.attributesOfItem(atPath: fileURL.path))?[.modificationDate] as? Date
-    }
-
-    private func cachedValue(matching mtime: Date?) -> Config? {
-        lock.lock()
-        defer { lock.unlock() }
-        guard let cached, cachedMtime == mtime else { return nil }
-        return cached
     }
 
     private func store(cached config: Config, mtime: Date?) {

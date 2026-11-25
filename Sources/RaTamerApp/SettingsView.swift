@@ -5,6 +5,12 @@ struct SettingsView: View {
     var onContentHeight: (CGFloat) -> Void
 
     private let tabs = ["General", "Buttons", "Scrolling", "About"]
+    private let tabIcons: [String: String] = [
+        "General": "gearshape",
+        "Buttons": "computermouse",
+        "Scrolling": "scroll",
+        "About": "info.circle",
+    ]
 
     // Last known content height of each tab. All panes stay alive in the
     // ZStack, so each records its height continuously; switching tabs
@@ -25,11 +31,16 @@ struct SettingsView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            TabBar(
-                tabs: tabs,
-                selection: $selection)
-            .padding(.horizontal, 14)
-            .padding(.top, 10)
+            VStack(spacing: 0) {
+                TabBar(
+                    tabs: tabs,
+                    selection: $selection,
+                    icons: tabIcons)
+                .padding(.horizontal, 14)
+                .padding(.top, 8)
+                Divider()
+                    .opacity(0.5)
+            }
             .onGeometryChange(for: CGFloat.self) { proxy in
                 proxy.size.height
             } action: { height in
@@ -90,7 +101,7 @@ struct SettingsView: View {
             .onGeometryChange(for: CGFloat.self) { proxy in
                 proxy.size.height
             } action: { height in
-                if let old = contentHeights[tab], abs(old - height) < 8 { return }
+                if let old = contentHeights[tab], abs(old - height) < 0.5 { return }
                 contentHeights[tab] = height
                 if selection == tab {
                     reportTotalHeight()

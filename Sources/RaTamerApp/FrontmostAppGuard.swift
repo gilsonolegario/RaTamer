@@ -7,15 +7,32 @@ import Foundation
 /// window. The answer is cached for a short window because the smooth-scroll
 /// path queries it at 120 Hz.
 enum FrontmostAppGuard {
+    private static let cacheTTL: TimeInterval = 0.25
+
     private static let lock = NSLock()
     private static var cachedResult = false
+    private static var cachedAt = Date.distantPast
+    private static var cacheGeneration: UInt64 = 0
+    private static var _isEnabled = true
 
     /// Whether the terminal protection is enabled in the user config. Set from
     /// EngineController whenever the config reloads; cached so the hot path
     /// (120 Hz smooth scroll) never touches the config store or AppKit.
-    static var isEnabled = true {
-        didSet {
-            invalidate()
+    static var isEnabled: Bool {
+        get {
+            lock.lock()
+            defer { lock.unlock() }
+            return _isEnabled
+        }
+        set {
+            lock.lock()
+            let changed = _isEnabled != newValue
+            _isEnabled = newValue
+            if changed {
+                cachedAt = .distantPast
+                cacheGeneration &+= 1
+            }
+            lock.unlock()
         }
     }
 
@@ -55,32 +72,38 @@ enum FrontmostAppGuard {
         terminalBundleIDs.contains(bundleID)
     }
 
-    /// Directly updates the cached terminal state using the provided bundle ID.
-    static func update(bundleID: String?) {
-        let isTerm = bundleID.map { terminalBundleIDs.contains($0) } ?? false
+    /// Invalidate the cached answer so the next query recomputes. Call when
+    /// the frontmost app changes (NSWorkspace.didActivateApplicationNotification).
+    static func invalidate() {
         lock.lock()
-        cachedResult = isEnabled && isTerm
+        cachedAt = .distantPast
+        cacheGeneration &+= 1
         lock.unlock()
     }
 
-    /// Invalidate the cached answer so the next query reflects the current frontmost app.
-    /// Safely hops to main if invoked from a background queue.
-    static func invalidate() {
-        if Thread.isMainThread {
-            update(bundleID: NSWorkspace.shared.frontmostApplication?.bundleIdentifier)
-        } else {
-            DispatchQueue.main.async {
-                update(bundleID: NSWorkspace.shared.frontmostApplication?.bundleIdentifier)
-            }
-        }
-    }
-
-    /// Fast non-blocking check. Called at 120 Hz from the smooth-scroll coordinator
-    /// queue without ever blocking on the main thread.
     static func isFrontmostTerminal() -> Bool {
         lock.lock()
-        defer { lock.unlock() }
-        return cachedResult
+        let now = Date()
+        let isExpired = now.timeIntervalSince(cachedAt) >= cacheTTL
+        let cached = cachedResult
+        let generation = cacheGeneration
+        lock.unlock()
+        guard isExpired else { return cached }
+        let value: Bool
+        if Thread.isMainThread {
+            value = compute()
+        } else {
+            var computed = false
+            DispatchQueue.main.sync { computed = compute() }
+            value = computed
+        }
+        lock.lock()
+        if cacheGeneration == generation {
+            cachedResult = value
+            cachedAt = now
+        }
+        lock.unlock()
+        return value
     }
 
     private static func compute() -> Bool {

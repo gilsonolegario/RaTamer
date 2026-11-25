@@ -2,13 +2,15 @@ import AppKit
 import SwiftUI
 import RaTamerCore
 
-final class OnboardingWindow {
+final class OnboardingWindow: NSObject, NSWindowDelegate {
     static let shared = OnboardingWindow()
     private var window: NSWindow?
     /// Called after the window closes so the app can hand off to its main UI.
     var onFinish: (() -> Void)?
 
-    private init() {}
+    private override init() {
+        super.init()
+    }
 
     func showIfNeeded() {
         guard OnboardingGate.shouldShow else { return }
@@ -17,12 +19,17 @@ final class OnboardingWindow {
 
     func show() {
         makeWindowIfNeeded()
+        AppModel.shared.refreshAccessibility()
         window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
 
     func close() {
         window?.close()
+        ActivationPolicyHelper.apply(reason: "onboarding-close")
+    }
+
+    func windowWillClose(_ notification: Notification) {
         ActivationPolicyHelper.apply(reason: "onboarding-close")
     }
 
@@ -43,6 +50,7 @@ final class OnboardingWindow {
         window.styleMask = [.titled, .closable]
         window.isReleasedWhenClosed = false
         window.isMovableByWindowBackground = true
+        window.delegate = self
         self.window = window
         window.center()
     }

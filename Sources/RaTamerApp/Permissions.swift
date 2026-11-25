@@ -20,6 +20,16 @@ enum Permissions {
         return cachedTrusted
     }
 
+    static func refreshAccessibilityTrusted() -> Bool {
+        lock.lock()
+        cachedAt = .distantPast
+        let value = AXIsProcessTrusted()
+        cachedTrusted = value
+        cachedAt = Date()
+        lock.unlock()
+        return value
+    }
+
     static func requestAccessibility() {
         lock.lock()
         cachedAt = .distantPast
