@@ -123,7 +123,11 @@ final class EngineController {
         let tap = ScrollWheelTap(
             shouldIntercept: { [weak self] direction in
                 guard let self, self.enabled, self.isConnected else { return false }
-                guard !FrontmostAppGuard.isFrontmostTerminal() else { return false }
+                if FrontmostAppGuard.isFrontmostTerminal() {
+                    guard let action = self.thumbWheelConfigAction(direction),
+                          ThumbWheel.isVolumeAction(action) else { return false }
+                    return true
+                }
                 return self.hasThumbWheelAction(direction)
             },
             onNotch: { [weak self] direction in

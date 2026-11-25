@@ -16,6 +16,13 @@ public enum ThumbWheel {
         deltaX > 0 ? .right : .left
     }
 
+    /// Volume posts media keys rather than text, so it stays usable while a
+    /// terminal owns the keyboard; every other action could type into it.
+    public static func isVolumeAction(_ action: ButtonAction?) -> Bool {
+        guard case .system(let name)? = action else { return false }
+        return name.hasPrefix("volume")
+    }
+
     public struct NotchAccumulator {
         private var pending: Int64 = 0
 

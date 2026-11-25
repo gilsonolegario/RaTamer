@@ -38,4 +38,12 @@ final class ScrollWheelTapTests: XCTestCase {
         XCTAssertTrue(tap.process(deltaX: 10, deltaY: 0, isContinuous: 0, phase: 0, pointDeltaX: 10))
         XCTAssertEqual(notches, [.right])
     }
+
+    func testVolumeActionsAreSafeInTerminal() {
+        XCTAssertTrue(ThumbWheel.isVolumeAction(.system("volumeUp")))
+        XCTAssertTrue(ThumbWheel.isVolumeAction(.system("volumeMute")))
+        XCTAssertFalse(ThumbWheel.isVolumeAction(.system("nextSpace")))
+        XCTAssertFalse(ThumbWheel.isVolumeAction(.shortcut(key: "x", modifiers: [])))
+        XCTAssertFalse(ThumbWheel.isVolumeAction(nil))
+    }
 }
