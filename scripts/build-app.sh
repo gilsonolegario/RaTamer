@@ -3,7 +3,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 SCRATCH="${RATAMER_SCRATCH:-$TMPDIR/ratamer-build}"
-ICON_SRC="${ICON_SRC:-$ROOT/screenshots/icone.png}"
+ICON_SRC="${ICON_SRC:-$ROOT/docs/assets/icone.png}"
 
 # ======================================================================
 # KEYCHAIN: try to unlock the default keychain without a password first
@@ -61,8 +61,8 @@ cat > "$APP/Contents/Info.plist" <<'EOF'
     <key>CFBundleExecutable</key><string>RaTamer</string>
     <key>CFBundleIconFile</key><string>RaTamer</string>
     <key>CFBundlePackageType</key><string>APPL</string>
-    <key>CFBundleShortVersionString</key><string>1.0.6</string>
-    <key>CFBundleVersion</key><string>9</string>
+    <key>CFBundleShortVersionString</key><string>1.0.7</string>
+    <key>CFBundleVersion</key><string>10</string>
     <key>LSMinimumSystemVersion</key><string>14.0</string>
     <key>LSUIElement</key><true/>
 </dict>

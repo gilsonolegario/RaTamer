@@ -1,4 +1,4 @@
-<img src="screenshots/icone.png" alt="App icon" width="128">
+<img src="docs/assets/icone.png" alt="App icon" width="128">
 
 # RaTamer
 
@@ -8,10 +8,10 @@ A native macOS menu bar app that replaces Logitech Options+ for the MX Master 3 
 ![macOS](https://img.shields.io/badge/macOS-14%2B-000000?logo=apple&logoColor=white&style=flat)
 ![Universal](https://img.shields.io/badge/arch-arm64%20%2B%20x86__64-blueviolet?style=flat)
 ![License](https://img.shields.io/badge/license-MIT-green?style=flat)
-![Version](https://img.shields.io/badge/version-1.0.6-FF9F1C?style=flat)
+![Version](https://img.shields.io/badge/version-1.0.7-FF9F1C?style=flat)
 [![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-FFDD00?style=flat&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/gilsonolegario)
 
-[![Settings — About tab](screenshots/settings-about.png)](screenshots/settings-about.png)
+[![Settings — About tab](docs/assets/settings-about.png)](docs/assets/settings-about.png)
 
 ## Download
 
@@ -80,9 +80,9 @@ Run `swift run RatTest` for a live tuning panel with all smooth-scroll parameter
 
 ### Screenshots
 
-[![Settings — Buttons tab](screenshots/settings-buttons.png)](screenshots/settings-buttons.png)
+[![Settings — Buttons tab](docs/assets/settings-buttons.png)](docs/assets/settings-buttons.png)
 
-[![Menu bar popover](screenshots/menu-bar.png)](screenshots/menu-bar.png)
+[![Menu bar popover](docs/assets/menu-bar.png)](docs/assets/menu-bar.png)
 
 ## How to install and use the app
 

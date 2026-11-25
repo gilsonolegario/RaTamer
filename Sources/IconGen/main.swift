@@ -128,7 +128,7 @@ func savePNG(_ rep: NSBitmapImageRep, to url: URL) throws {
 
 // Optional source image: when given, it is downsampled to every icon size
 // instead of using the programmatically drawn mouse. This lets the app icon
-// come from a 1024x1024 PNG (e.g. screenshots/icone.png).
+// come from a PNG (e.g. docs/assets/icone.png).
 var sourceImage: NSBitmapImageRep?
 if let sourcePath, let image = NSImage(contentsOfFile: sourcePath) {
     if let tiff = image.tiffRepresentation, let rep = NSBitmapImageRep(data: tiff) {

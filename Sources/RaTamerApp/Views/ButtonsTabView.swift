@@ -592,8 +592,8 @@ struct ShortcutRecorderView: View {
         .onDisappear {
             if let recorderMonitor {
                 NSEvent.removeMonitor(recorderMonitor)
-                recorderMonitor = nil
             }
+            recorderMonitor = nil
         }
     }
 
