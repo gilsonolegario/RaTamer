@@ -58,7 +58,7 @@ struct TerminalProtectionRow: View {
         Toggle(
             "Block events in terminal apps",
             isOn: Binding(
-                get: { model.config.protectTerminals ?? true },
+                get: { model.config.terminalProtectionEnabled },
                 set: { newValue in
                     model.updateConfig { $0.protectTerminals = newValue }
                     model.engine?.applyConfig()

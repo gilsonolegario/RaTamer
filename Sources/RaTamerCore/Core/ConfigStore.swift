@@ -173,6 +173,7 @@ public struct Config: Codable, Equatable {
     public var smoothScrollAdvanced: ScrollSmoother.Parameters?
     public var menuBarOnly: Bool?
     public var protectTerminals: Bool?
+    public var terminalProtectionEnabled: Bool { protectTerminals ?? false }
     public var thumbWheelLeft: ButtonAction?
     public var thumbWheelRight: ButtonAction?
 

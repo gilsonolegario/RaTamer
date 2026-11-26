@@ -345,13 +345,14 @@ final class ConfigStoreTests: XCTestCase {
         XCTAssertNil(loaded.menuBarOnly)
     }
 
-    func testProtectTerminalsDefaultsOnWhenAbsent() throws {
+    func testProtectTerminalsAbsentMeansProtectionOff() throws {
         let url = tempDir.appendingPathComponent("no-protect.json")
         try #"""
         {"version":2,"deviceIndex":1,"buttons":{}}
         """#.write(to: url, atomically: true, encoding: .utf8)
         let loaded = ConfigStore(fileURL: url).load()
         XCTAssertNil(loaded.protectTerminals, "stored value should be nil until the user changes it")
+        XCTAssertFalse(loaded.terminalProtectionEnabled)
     }
 
     func testProtectTerminalsRoundTripsThroughStore() throws {

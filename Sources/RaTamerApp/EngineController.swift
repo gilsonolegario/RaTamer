@@ -484,7 +484,7 @@ final class EngineController {
 
     private func refreshConfig() {
         let config = configStore.load()
-        let newEnabled = config.protectTerminals ?? true
+        let newEnabled = config.terminalProtectionEnabled
         if FrontmostAppGuard.isEnabled != newEnabled {
             FrontmostAppGuard.isEnabled = newEnabled
             FrontmostAppGuard.invalidate()
